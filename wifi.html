@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kompresör Kontrol Test</title>
+<title>Kompresör Kontrol</title>
 <style>
 body { background:#0e0e0e; color:white; text-align:center; font-family:Arial; }
 button { padding:20px 40px; font-size:20px; margin:20px; border:none; border-radius:10px; cursor:pointer; }
@@ -12,13 +12,13 @@ button { padding:20px 40px; font-size:20px; margin:20px; border:none; border-rad
 </head>
 <body>
 
-<h2>Kompresör Kontrol Test</h2>
+<h2>Kompresör Kontrol</h2>
 
 <button id="btnStart" class="btn-start">START</button>
 <button id="btnStop"  class="btn-stop">STOP</button>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynBgjJGO4Iya9B2PDTmcVzm6gyTiTXhXb9x5djCG0QdExTH3uzYrrRgs-ixQWfHIw/exec"; // <-- buraya deploy edilen Web App URL'i koy
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynBgjJGO4Iya9B2PDTmcVzm6gyTiTXhXb9x5djCG0QdExTH3uzYrrRgs-ixQWfHIw/exec"; // Apps Script Web App URL
 
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
@@ -40,6 +40,8 @@ btnStop.onclick = () => {
 
 </body>
 </html>
+
+
 
 
 
