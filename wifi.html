@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -5,50 +6,14 @@
 <title>Kompresor Kontrol</title>
 
 <style>
-body {
-  background:#0e0e0e;
-  color:white;
-  text-align:center;
-  font-family:Arial;
-}
-
-.btn {
-  width:80%;
-  max-width:300px;
-  padding:20px;
-  margin:15px auto;
-  font-size:22px;
-  font-weight:bold;
-  border:none;
-  border-radius:14px;
-  color:white;
-  transition:0.15s;
-}
-
+body { background:#0e0e0e; color:white; text-align:center; font-family:Arial; }
+.btn { width:80%; max-width:300px; padding:20px; margin:15px auto; font-size:22px; font-weight:bold; border:none; border-radius:14px; color:white; transition:0.15s; }
 .btn-start { background:#00c853; }
 .btn-stop  { background:#d50000; }
-
-.disabled {
-  opacity:0.35;
-  pointer-events:none;
-  filter:grayscale(100%);
-}
-
-.btn:active {
-  transform:scale(0.92);
-}
-
-@keyframes vibrate {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  50% { transform: translateX(3px); }
-  75% { transform: translateX(-3px); }
-  100% { transform: translateX(0); }
-}
-
-.vibrate {
-  animation:vibrate 0.15s linear;
-}
+.disabled { opacity:0.35; pointer-events:none; filter:grayscale(100%); }
+.btn:active { transform:scale(0.92); }
+@keyframes vibrate { 0%{transform:translateX(0);} 25%{transform:translateX(-3px);} 50%{transform:translateX(3px);} 75%{transform:translateX(-3px);} 100%{transform:translateX(0);} }
+.vibrate { animation:vibrate 0.15s linear; }
 </style>
 </head>
 
@@ -64,18 +29,11 @@ body {
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
 
-let online = true;
 let startState = 0;
 let stopState  = 0;
 
 function updateButtons() {
-  if (!online) {
-    btnStart.classList.add("disabled");
-    btnStop.classList.add("disabled");
-    return;
-  }
-
-  if (startState === 1 || stopState === 1) {
+  if (startState===1 || stopState===1) {
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
   } else {
@@ -85,49 +43,35 @@ function updateButtons() {
 }
 
 function vibrateAndAnimate(btn) {
-  if (navigator.vibrate) navigator.vibrate(50);
+  if(navigator.vibrate) navigator.vibrate(50);
   btn.classList.add("vibrate");
-  setTimeout(() => btn.classList.remove("vibrate"), 150);
+  setTimeout(()=>btn.classList.remove("vibrate"),150);
 }
 
-// === BURAYA Apps Script URL'ni ekle ===
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIxMvEn4v0WL2HV7GZYAcKrrQzH6c-8YXnRPzSPvYUyIYo4uKLMyNcv1noJiYYtKcX/exec";
+// --- Apps Script URL ---
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzgXM9QkT_eieoSS2slSWtm6vHY8lBnzKuAXP8zsMaJ-fFQVvkj5wJ0ye2dIEltT9Nn/exec";
 
+// --- Fetch Fonksiyonu ---
 async function sendCommand(cmd) {
   try {
     const res = await fetch(`${SCRIPT_URL}?c=${cmd}`);
     const text = await res.text();
     console.log("Apps Script response:", text);
-  } catch (err) {
+  } catch(err) {
     console.error("Fetch error:", err);
   }
 }
 
-btnStart.onclick = () => {
-  sendCommand("START");
-  startState = 1;
-  updateButtons();
-  vibrateAndAnimate(btnStart);
-};
+btnStart.onclick = () => { sendCommand("START"); startState=1; updateButtons(); vibrateAndAnimate(btnStart); };
+btnStop.onclick  = () => { sendCommand("STOP");  stopState=1;  updateButtons(); vibrateAndAnimate(btnStop); };
 
-btnStop.onclick  = () => {
-  sendCommand("STOP");
-  stopState = 1;
-  updateButtons();
-  vibrateAndAnimate(btnStop);
-};
-
-// Buton state reset
-setInterval(() => {
-  startState = 0;
-  stopState = 0;
-  updateButtons();
-}, 1000);
-
+// State reset (opsiyonel)
+setInterval(()=>{ startState=0; stopState=0; updateButtons(); }, 1000);
 </script>
 
 </body>
 </html>
+
 
 
 
