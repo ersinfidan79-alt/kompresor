@@ -67,12 +67,14 @@ h2 {
     width: 100%;
 }
 
-.button-group button, .button-group span {
+.button-group button {
     width: 100%;
     font-size: 2em;
     padding: 20px 0;
     border: none;
     border-radius: 20px;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.35);
     color: white;
     display: flex;
     justify-content: center;
@@ -86,43 +88,32 @@ h2 {
 .button-group button:active { transform: scale(0.95); }
 .button-group button:hover { transform: scale(1.05); }
 
-#btnConnect  { background: linear-gradient(135deg, #007bff, #00bfff); } 
-button[onclick*="START"]  { background: linear-gradient(135deg, #28a745, #218838); }
+#btnConnect  { background: linear-gradient(135deg, #28a745, #218838); }
+button[onclick*="START"]  { background: linear-gradient(135deg, #007bff, #00bfff); }
 button[onclick*="STOP"]   { background: linear-gradient(135deg, #dc3545, #ff4c4c); }
 button[onclick*="RESET"]  { background: linear-gradient(135deg, #8e44ad, #c0392b); }
 
-/* Pasif ve bağlı durum stilleri */
+/* Pasif durum stili */
 button.disabled {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
 }
-button.connected {
-    opacity: 0.6;
-    cursor: pointer;
-}
-
-/* Bluetooth kapalı etiketi */
-span.bt-closed {
-    background: #6c757d;
-    border-radius: 20px;
-    cursor: not-allowed;
-    opacity: 0.5;
-}
 
 @media (max-width: 600px) {
     h2 { font-size: 1.8em; }
-    .button-group button, .button-group span { font-size: 1.5em; padding: 18px 0; }
+    .button-group button { font-size: 1.5em; padding: 18px 0; }
 }
 </style>
 </head>
 <body>
 
+<!-- ⭐ Bildirim Kutusu -->
 <div id="toast" class="toast"></div>
 
 <div class="container">
     <h2>Bluetooth</h2>
-    <div class="button-group" id="bluetoothArea">
+    <div class="button-group">
         <button id="btnConnect"><i class="fas fa-bluetooth"></i> Bağlan</button>
     </div>
 
@@ -138,19 +129,15 @@ span.bt-closed {
 let device;
 let characteristic;
 const btnConnect = document.getElementById("btnConnect");
-const bluetoothArea = document.getElementById("bluetoothArea");
 const commandButtons = [document.getElementById("btnStart"), document.getElementById("btnStop"), document.getElementById("btnReset")];
 
-// Başlangıçta komut butonlarını pasif yap
+/* Başlangıçta butonları pasif yap */
 commandButtons.forEach(btn => btn.classList.add("disabled"));
 
-// Eğer Bluetooth desteklenmiyorsa, Bağlan butonunu gizle ve "Bluetooth Kapalı" göster
+/* Eğer Bluetooth kapalıysa Bağlan butonunu soluk ve pasif yap, yazısını değiştir */
 if (!navigator.bluetooth) {
-    btnConnect.style.display = "none";
-    const span = document.createElement("span");
-    span.className = "bt-closed";
-    span.innerHTML = "<i class='fas fa-bluetooth'></i> Kapalı";
-    bluetoothArea.appendChild(span);
+    btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Kapalı";
+    btnConnect.classList.add("disabled");
 }
 
 function showToast(type, msg) {
@@ -161,18 +148,6 @@ function showToast(type, msg) {
     if (navigator.vibrate && !btnConnect.classList.contains("disabled")) navigator.vibrate([80]);
     setTimeout(() => { toast.classList.remove("show"); }, 2200);
 }
-
-async function checkConnection() {
-    if (!device || !device.gatt.connected) {
-        characteristic = null;
-        commandButtons.forEach(btn => btn.classList.add("disabled"));
-        if (navigator.bluetooth) {
-            btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Bağlan";
-            btnConnect.classList.remove("connected");
-        }
-    }
-}
-setInterval(checkConnection, 2000);
 
 btnConnect.onclick = async () => {
     if (btnConnect.classList.contains("disabled")) return;
@@ -189,11 +164,10 @@ btnConnect.onclick = async () => {
 
         showToast("success", "<i class='fa fa-check-circle'></i> Bluetooth bağlandı");
 
+        // Bağlantı sağlandıktan sonra butonları aktif yap
         commandButtons.forEach(btn => btn.classList.remove("disabled"));
-
-        btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> BAĞLI";
-        btnConnect.classList.add("connected");
-    } catch (error) {
+    } 
+    catch (error) {
         showToast("error", "<i class='fa fa-times-circle'></i> Bağlanma hatası");
     }
 };
@@ -211,3 +185,4 @@ async function sendCommand(cmd) {
 
 </body>
 </html>
+
