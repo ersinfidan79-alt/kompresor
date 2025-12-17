@@ -64,7 +64,7 @@ body {
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
 
-let online = true;  // Apps Script her zaman çalışıyor, basit mantıkla true
+let online = true;
 let startState = 0;
 let stopState  = 0;
 
@@ -90,23 +90,34 @@ function vibrateAndAnimate(btn) {
   setTimeout(() => btn.classList.remove("vibrate"), 150);
 }
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIxMvEn4v0WL2HV7GZYAcKrrQzH6c-8YXnRPzSPvYUyIYo4uKLMyNcv1noJiYYtKcX/exec"; // Apps Script URL'n
+// === BURAYA Apps Script URL'ni ekle ===
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIxMvEn4v0WL2HV7GZYAcKrrQzH6c-8YXnRPzSPvYUyIYo4uKLMyNcv1noJiYYtKcX/exec";
+
+async function sendCommand(cmd) {
+  try {
+    const res = await fetch(`${SCRIPT_URL}?c=${cmd}`);
+    const text = await res.text();
+    console.log("Apps Script response:", text);
+  } catch (err) {
+    console.error("Fetch error:", err);
+  }
+}
 
 btnStart.onclick = () => {
-  fetch(`${SCRIPT_URL}?c=START`).then(r => r.text());
+  sendCommand("START");
   startState = 1;
   updateButtons();
   vibrateAndAnimate(btnStart);
 };
 
 btnStop.onclick  = () => {
-  fetch(`${SCRIPT_URL}?c=STOP`).then(r => r.text());
+  sendCommand("STOP");
   stopState = 1;
   updateButtons();
   vibrateAndAnimate(btnStop);
 };
 
-// Opsiyonel: buton state reset (1 saniye sonra)
+// Buton state reset
 setInterval(() => {
   startState = 0;
   stopState = 0;
