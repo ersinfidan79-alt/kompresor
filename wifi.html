@@ -3,7 +3,6 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kompresor Kontrol</title>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
 body {
@@ -35,12 +34,10 @@ body {
   filter:grayscale(100%);
 }
 
-/* Basma animasyonu */
 .btn:active {
   transform:scale(0.92);
 }
 
-/* Kısa titreşim animasyonu */
 @keyframes vibrate {
   0% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
@@ -67,19 +64,17 @@ body {
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
 
-let online = false;
+let online = true;  // Apps Script her zaman çalışıyor, basit mantıkla true
 let startState = 0;
 let stopState  = 0;
 
 function updateButtons() {
-  // ESP32 offline → ikisi de pasif
   if (!online) {
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
     return;
   }
 
-  // START veya STOP HIGH ise → ikisi de pasif
   if (startState === 1 || stopState === 1) {
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
@@ -89,63 +84,38 @@ function updateButtons() {
   }
 }
 
-const client = mqtt.connect(
-  "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
-  {
-    username:"wersin3230",
-    password:"We112233",
-    keepalive:60,
-    reconnectPeriod:2000
-  }
-);
-
-client.on("connect", () => {
-  online = false;
-  updateButtons();
-  client.subscribe("esp32/status");
-  client.subscribe("esp32/start_state");
-  client.subscribe("esp32/stop_state");
-});
-
-client.on("close",   () => { online = false; updateButtons(); });
-client.on("offline", () => { online = false; updateButtons(); });
-client.on("error",   () => { online = false; updateButtons(); });
-
-client.on("message", (topic, message) => {
-  const val = message.toString();
-
-  if (topic === "esp32/status") {
-    online = (val === "1");
-  }
-
-  if (topic === "esp32/start_state") {
-    startState = (val === "1") ? 1 : 0;
-  }
-
-  if (topic === "esp32/stop_state") {
-    stopState = (val === "1") ? 1 : 0;
-  }
-
-  updateButtons();
-});
-
-/* --- Animasyon + Telefon Titreşimi --- */
 function vibrateAndAnimate(btn) {
   if (navigator.vibrate) navigator.vibrate(50);
   btn.classList.add("vibrate");
   setTimeout(() => btn.classList.remove("vibrate"), 150);
 }
 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw226hlBnXj5cdVIHfmtabIEaM4Yre4YjAU8Tm_Ak5_6PhiLVIw2rWzPCEBatl-uEA/exec"; // Apps Script URL'n
+
 btnStart.onclick = () => {
-  client.publish("esp32/start","1");
+  fetch(`${SCRIPT_URL}?c=START`).then(r => r.text());
+  startState = 1;
+  updateButtons();
   vibrateAndAnimate(btnStart);
 };
 
 btnStop.onclick  = () => {
-  client.publish("esp32/stop","1");
+  fetch(`${SCRIPT_URL}?c=STOP`).then(r => r.text());
+  stopState = 1;
+  updateButtons();
   vibrateAndAnimate(btnStop);
 };
+
+// Opsiyonel: buton state reset (1 saniye sonra)
+setInterval(() => {
+  startState = 0;
+  stopState = 0;
+  updateButtons();
+}, 1000);
+
 </script>
 
 </body>
 </html>
+
+
