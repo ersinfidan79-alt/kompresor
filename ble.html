@@ -17,9 +17,6 @@ html, body {
     align-items: center;
 }
 
-/* ===========================================
-   ALTTAN KAYAR + RENKLİ + İKONLU BİLDİRİM
-=========================================== */
 .toast {
     position: fixed;
     bottom: -120px;
@@ -44,14 +41,10 @@ html, body {
     opacity: 1;
 }
 
-/* Renk temaları */
 .toast.success { background: rgba(40,167,69,0.88); }
 .toast.error   { background: rgba(220,53,69,0.88); }
 .toast.warn    { background: rgba(255,165,0,0.88); }
 
-/* ===========================================
-   GÖRSEL TASARIM SENİN BUTONLARIN
-=========================================== */
 .container {
     text-align: center;
     width: 95%;
@@ -95,22 +88,17 @@ h2 {
 .button-group button:active { transform: scale(0.95); }
 .button-group button:hover { transform: scale(1.05); }
 
-/* ==========================
-   BUTON RENKLERİ
-========================== */
-#btnConnect  { background: linear-gradient(135deg, #007bff, #00bfff); } /* START rengi mavi */
-button[onclick*="START"]  { background: linear-gradient(135deg, #28a745, #218838); } /* Bağlan rengi yeşil */
+#btnConnect  { background: linear-gradient(135deg, #007bff, #00bfff); }
+button[onclick*="START"]  { background: linear-gradient(135deg, #28a745, #218838); }
 button[onclick*="STOP"]   { background: linear-gradient(135deg, #dc3545, #ff4c4c); }
 button[onclick*="RESET"]  { background: linear-gradient(135deg, #8e44ad, #c0392b); }
 
-/* Pasif durum stili */
 button.disabled {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
 }
 
-/* Bağlı durum stili (soluk ama tıklanabilir) */
 button.connected {
     opacity: 0.6;
     cursor: pointer;
@@ -124,7 +112,6 @@ button.connected {
 </head>
 <body>
 
-<!-- ⭐ Bildirim Kutusu -->
 <div id="toast" class="toast"></div>
 
 <div class="container">
@@ -145,40 +132,38 @@ button.connected {
 let device;
 let characteristic;
 
-/* Başlangıçta butonları pasif yap */
+const btnConnect = document.getElementById("btnConnect");
 const commandButtons = [document.getElementById("btnStart"), document.getElementById("btnStop"), document.getElementById("btnReset")];
 commandButtons.forEach(btn => btn.classList.add("disabled"));
 
-const btnConnect = document.getElementById("btnConnect");
+/* Bluetooth kapalıysa butonu pasif yap ve yazısını değiştir */
+if (!navigator.bluetooth) {
+    btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Kapalı";
+    btnConnect.classList.add("disabled");
+}
 
-/* ================================
-      ⭐ Gelişmiş Bildirim Fonksiyonu ⭐
-================================ */
 function showToast(type, msg) {
     let toast = document.getElementById("toast");
     toast.className = "toast " + type;
     toast.innerHTML = msg;
     toast.classList.add("show");
-    if (navigator.vibrate && !btnConnect.disabled) navigator.vibrate([80]);
+    if (navigator.vibrate && !btnConnect.classList.contains("disabled")) navigator.vibrate([80]);
     setTimeout(() => { toast.classList.remove("show"); }, 2200);
 }
 
-/* Bluetooth bağlantısı durumu kontrolü */
 async function checkConnection() {
     if (!device || !device.gatt.connected) {
         characteristic = null;
-        // Komut butonlarını tekrar pasif yap
         commandButtons.forEach(btn => btn.classList.add("disabled"));
-        // Bağlan butonunu eski haline döndür
         btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Bağlan";
         btnConnect.classList.remove("connected");
     }
 }
-
-/* Otomatik bağlantı kontrolü her 2 saniyede bir */
 setInterval(checkConnection, 2000);
 
 btnConnect.onclick = async () => {
+    if (btnConnect.classList.contains("disabled")) return;
+
     try {
         device = await navigator.bluetooth.requestDevice({
             filters: [{ name: "KOMPRESOR" }],
@@ -190,11 +175,7 @@ btnConnect.onclick = async () => {
         characteristic = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
 
         showToast("success", "<i class='fa fa-check-circle'></i> Bluetooth bağlandı");
-
-        // Komut butonlarını aktif yap
         commandButtons.forEach(btn => btn.classList.remove("disabled"));
-
-        // Bağlan butonunu güncelle: yazı BAĞLI, soluk ama tıklanabilir
         btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> BAĞLI";
         btnConnect.classList.add("connected");
     } 
@@ -211,12 +192,10 @@ async function sendCommand(cmd) {
 
     const data = new TextEncoder().encode(cmd);
     await characteristic.writeValue(data);
-
     showToast("success", "<i class='fa fa-paper-plane'></i> " + cmd + " gönderildi");
 }
 </script>
 
 </body>
 </html>
-
 
