@@ -90,7 +90,7 @@ function vibrateAndAnimate(btn) {
   setTimeout(() => btn.classList.remove("vibrate"), 150);
 }
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw226hlBnXj5cdVIHfmtabIEaM4Yre4YjAU8Tm_Ak5_6PhiLVIw2rWzPCEBatl-uEA/exec"; // Apps Script URL'n
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxIxMvEn4v0WL2HV7GZYAcKrrQzH6c-8YXnRPzSPvYUyIYo4uKLMyNcv1noJiYYtKcX/exec"; // Apps Script URL'n
 
 btnStart.onclick = () => {
   fetch(`${SCRIPT_URL}?c=START`).then(r => r.text());
@@ -117,5 +117,6 @@ setInterval(() => {
 
 </body>
 </html>
+
 
 
