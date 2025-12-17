@@ -107,6 +107,12 @@ button.disabled {
     pointer-events: none;
 }
 
+/* Bağlı durum stili (soluk ama tıklanabilir) */
+button.connected {
+    opacity: 0.6;
+    cursor: pointer;
+}
+
 @media (max-width: 600px) {
     h2 { font-size: 1.8em; }
     .button-group button { font-size: 1.5em; padding: 18px 0; }
@@ -140,6 +146,8 @@ let characteristic;
 const commandButtons = [document.getElementById("btnStart"), document.getElementById("btnStop"), document.getElementById("btnReset")];
 commandButtons.forEach(btn => btn.classList.add("disabled"));
 
+const btnConnect = document.getElementById("btnConnect");
+
 /* ================================
       ⭐ Gelişmiş Bildirim Fonksiyonu ⭐
 ================================ */
@@ -157,7 +165,7 @@ function showToast(type, msg) {
     }, 2200);
 }
 
-document.getElementById("btnConnect").onclick = async () => {
+btnConnect.onclick = async () => {
     try {
         device = await navigator.bluetooth.requestDevice({
             filters: [{ name: "KOMPRESOR" }],
@@ -170,8 +178,12 @@ document.getElementById("btnConnect").onclick = async () => {
 
         showToast("success", "<i class='fa fa-check-circle'></i> Bluetooth bağlandı");
 
-        // Bağlantı sağlandıktan sonra butonları aktif yap
+        // Komut butonlarını aktif yap
         commandButtons.forEach(btn => btn.classList.remove("disabled"));
+
+        // Bağlan butonunu güncelle: yazı BAĞLI, soluk ama tıklanabilir
+        btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> BAĞLI";
+        btnConnect.classList.add("connected");
     } 
     catch (error) {
         showToast("error", "<i class='fa fa-times-circle'></i> Bağlanma hatası");
