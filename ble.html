@@ -134,13 +134,9 @@ let characteristic;
 
 const btnConnect = document.getElementById("btnConnect");
 const commandButtons = [document.getElementById("btnStart"), document.getElementById("btnStop"), document.getElementById("btnReset")];
-commandButtons.forEach(btn => btn.classList.add("disabled"));
 
-/* Bluetooth kapalıysa butonu pasif yap ve yazısını değiştir */
-if (!navigator.bluetooth) {
-    btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Kapalı";
-    btnConnect.classList.add("disabled");
-}
+// Başlangıçta komut butonlarını pasif yap
+commandButtons.forEach(btn => btn.classList.add("disabled"));
 
 function showToast(type, msg) {
     let toast = document.getElementById("toast");
@@ -162,8 +158,6 @@ async function checkConnection() {
 setInterval(checkConnection, 2000);
 
 btnConnect.onclick = async () => {
-    if (btnConnect.classList.contains("disabled")) return;
-
     try {
         device = await navigator.bluetooth.requestDevice({
             filters: [{ name: "KOMPRESOR" }],
@@ -180,7 +174,7 @@ btnConnect.onclick = async () => {
         btnConnect.classList.add("connected");
     } 
     catch (error) {
-        showToast("error", "<i class='fa fa-times-circle'></i> Bağlanma hatası");
+        showToast("warn", "<i class='fa fa-exclamation-circle'></i> Bluetooth kapalı veya cihaz bulunamadı");
     }
 };
 
@@ -189,7 +183,6 @@ async function sendCommand(cmd) {
         showToast("warn", "<i class='fa fa-exclamation-circle'></i> Önce bağlanın");
         return;
     }
-
     const data = new TextEncoder().encode(cmd);
     await characteristic.writeValue(data);
     showToast("success", "<i class='fa fa-paper-plane'></i> " + cmd + " gönderildi");
@@ -198,4 +191,5 @@ async function sendCommand(cmd) {
 
 </body>
 </html>
+
 
