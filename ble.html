@@ -100,6 +100,13 @@ button[onclick*="START"]  { background: linear-gradient(135deg, #007bff, #00bfff
 button[onclick*="STOP"]   { background: linear-gradient(135deg, #dc3545, #ff4c4c); }
 button[onclick*="RESET"]  { background: linear-gradient(135deg, #8e44ad, #c0392b); }
 
+/* Pasif durum stili */
+button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 @media (max-width: 600px) {
     h2 { font-size: 1.8em; }
     .button-group button { font-size: 1.5em; padding: 18px 0; }
@@ -119,15 +126,19 @@ button[onclick*="RESET"]  { background: linear-gradient(135deg, #8e44ad, #c0392b
 
     <h2>Komut Gönder</h2>
     <div class="button-group">
-        <button onclick="sendCommand('START')"><i class="fas fa-play"></i> START</button>
-        <button onclick="sendCommand('STOP')"><i class="fas fa-stop"></i> STOP</button>
-        <button onclick="sendCommand('RESET')"><i class="fas fa-power-off"></i> RESET</button>
+        <button id="btnStart" onclick="sendCommand('START')"><i class="fas fa-play"></i> START</button>
+        <button id="btnStop" onclick="sendCommand('STOP')"><i class="fas fa-stop"></i> STOP</button>
+        <button id="btnReset" onclick="sendCommand('RESET')"><i class="fas fa-power-off"></i> RESET</button>
     </div>
 </div>
 
 <script>
 let device;
 let characteristic;
+
+/* Başlangıçta butonları pasif yap */
+const commandButtons = [document.getElementById("btnStart"), document.getElementById("btnStop"), document.getElementById("btnReset")];
+commandButtons.forEach(btn => btn.classList.add("disabled"));
 
 /* ================================
       ⭐ Gelişmiş Bildirim Fonksiyonu ⭐
@@ -139,7 +150,7 @@ function showToast(type, msg) {
     toast.innerHTML = msg;
 
     toast.classList.add("show");
-    if (navigator.vibrate) navigator.vibrate([80]);
+    if (navigator.vibrate && !btnConnect.disabled) navigator.vibrate([80]);
 
     setTimeout(() => {
         toast.classList.remove("show");
@@ -158,6 +169,9 @@ document.getElementById("btnConnect").onclick = async () => {
         characteristic = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
 
         showToast("success", "<i class='fa fa-check-circle'></i> Bluetooth bağlandı");
+
+        // Bağlantı sağlandıktan sonra butonları aktif yap
+        commandButtons.forEach(btn => btn.classList.remove("disabled"));
     } 
     catch (error) {
         showToast("error", "<i class='fa fa-times-circle'></i> Bağlanma hatası");
