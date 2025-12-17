@@ -96,7 +96,7 @@ h2 {
 .button-group button:hover { transform: scale(1.05); }
 
 /* ==========================
-   BUTON RENKLERİ DEĞİŞTİ
+   BUTON RENKLERİ
 ========================== */
 #btnConnect  { background: linear-gradient(135deg, #007bff, #00bfff); } /* START rengi mavi */
 button[onclick*="START"]  { background: linear-gradient(135deg, #28a745, #218838); } /* Bağlan rengi yeşil */
@@ -156,17 +156,27 @@ const btnConnect = document.getElementById("btnConnect");
 ================================ */
 function showToast(type, msg) {
     let toast = document.getElementById("toast");
-
     toast.className = "toast " + type;
     toast.innerHTML = msg;
-
     toast.classList.add("show");
     if (navigator.vibrate && !btnConnect.disabled) navigator.vibrate([80]);
-
-    setTimeout(() => {
-        toast.classList.remove("show");
-    }, 2200);
+    setTimeout(() => { toast.classList.remove("show"); }, 2200);
 }
+
+/* Bluetooth bağlantısı durumu kontrolü */
+async function checkConnection() {
+    if (!device || !device.gatt.connected) {
+        characteristic = null;
+        // Komut butonlarını tekrar pasif yap
+        commandButtons.forEach(btn => btn.classList.add("disabled"));
+        // Bağlan butonunu eski haline döndür
+        btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Bağlan";
+        btnConnect.classList.remove("connected");
+    }
+}
+
+/* Otomatik bağlantı kontrolü her 2 saniyede bir */
+setInterval(checkConnection, 2000);
 
 btnConnect.onclick = async () => {
     try {
