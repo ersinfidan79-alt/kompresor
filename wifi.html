@@ -2,74 +2,46 @@
 <html lang="tr">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kompresor Kontrol</title>
-
+<title>Kompresör Kontrol Test</title>
 <style>
 body { background:#0e0e0e; color:white; text-align:center; font-family:Arial; }
-.btn { width:80%; max-width:300px; padding:20px; margin:15px auto; font-size:22px; font-weight:bold; border:none; border-radius:14px; color:white; transition:0.15s; }
-.btn-start { background:#00c853; }
-.btn-stop  { background:#d50000; }
-.disabled { opacity:0.35; pointer-events:none; filter:grayscale(100%); }
-.btn:active { transform:scale(0.92); }
-@keyframes vibrate { 0%{transform:translateX(0);} 25%{transform:translateX(-3px);} 50%{transform:translateX(3px);} 75%{transform:translateX(-3px);} 100%{transform:translateX(0);} }
-.vibrate { animation:vibrate 0.15s linear; }
+button { padding:20px 40px; font-size:20px; margin:20px; border:none; border-radius:10px; cursor:pointer; }
+.btn-start { background:#00c853; color:white; }
+.btn-stop  { background:#d50000; color:white; }
 </style>
 </head>
-
 <body>
 
-<h2>Kompresör Kontrol</h2>
-<h2>( Made in Ersin )</h2>
+<h2>Kompresör Kontrol Test</h2>
 
-<button id="btnStart" class="btn btn-start disabled">🟢 START</button>
-<button id="btnStop"  class="btn btn-stop disabled">🔴 STOP</button>
+<button id="btnStart" class="btn-start">START</button>
+<button id="btnStop"  class="btn-stop">STOP</button>
 
 <script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynBgjJGO4Iya9B2PDTmcVzm6gyTiTXhXb9x5djCG0QdExTH3uzYrrRgs-ixQWfHIw/exec?c=START"; // <-- buraya deploy edilen Web App URL'i koy
+
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
 
-let startState = 0;
-let stopState  = 0;
+btnStart.onclick = () => {
+  fetch(`${SCRIPT_URL}?c=START`)
+    .then(r => r.text())
+    .then(t => console.log("START response:", t))
+    .catch(e => console.error("Fetch error:", e));
+};
 
-function updateButtons() {
-  if (startState===1 || stopState===1) {
-    btnStart.classList.add("disabled");
-    btnStop.classList.add("disabled");
-  } else {
-    btnStart.classList.remove("disabled");
-    btnStop.classList.remove("disabled");
-  }
-}
-
-function vibrateAndAnimate(btn) {
-  if(navigator.vibrate) navigator.vibrate(50);
-  btn.classList.add("vibrate");
-  setTimeout(()=>btn.classList.remove("vibrate"),150);
-}
-
-// --- Apps Script URL ---
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbynBgjJGO4Iya9B2PDTmcVzm6gyTiTXhXb9x5djCG0QdExTH3uzYrrRgs-ixQWfHIw/exec"; // buraya deploy URL'n
-
-// --- Fetch Fonksiyonu ---
-async function sendCommand(cmd) {
-  try {
-    const res = await fetch(`${SCRIPT_URL}?c=${cmd}`);
-    const text = await res.text();
-    console.log("Apps Script response:", text);
-  } catch(err) {
-    console.error("Fetch error:", err);
-  }
-}
-
-btnStart.onclick = () => { sendCommand("START"); startState=1; updateButtons(); vibrateAndAnimate(btnStart); };
-btnStop.onclick  = () => { sendCommand("STOP");  stopState=1;  updateButtons(); vibrateAndAnimate(btnStop); };
-
-// State reset (opsiyonel)
-setInterval(()=>{ startState=0; stopState=0; updateButtons(); }, 1000);
+btnStop.onclick = () => {
+  fetch(`${SCRIPT_URL}?c=STOP`)
+    .then(r => r.text())
+    .then(t => console.log("STOP response:", t))
+    .catch(e => console.error("Fetch error:", e));
+};
 </script>
 
 </body>
 </html>
+
+
 
 
 
