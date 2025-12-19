@@ -11,6 +11,8 @@ body {
   color:white;
   text-align:center;
   font-family:Arial;
+  margin:0;
+  padding:0;
 }
 
 .btn {
@@ -24,6 +26,7 @@ body {
   border-radius:14px;
   color:white;
   transition:0.15s;
+  display:block;
 }
 
 .btn-start { background:#00c853; }
@@ -35,12 +38,8 @@ body {
   filter:grayscale(100%);
 }
 
-/* Basma animasyonu */
-.btn:active {
-  transform:scale(0.92);
-}
+.btn:active { transform:scale(0.92); }
 
-/* Kısa titreşim animasyonu */
 @keyframes vibrate {
   0% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
@@ -49,8 +48,21 @@ body {
   100% { transform: translateX(0); }
 }
 
-.vibrate {
-  animation:vibrate 0.15s linear;
+.vibrate { animation:vibrate 0.15s linear; }
+
+/* Overlay */
+#overlay {
+  position: fixed;
+  inset:0;
+  background: rgba(0,0,0,0.85);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight:bold;
+  z-index: 9999;
+  text-align: center;
 }
 </style>
 </head>
@@ -63,32 +75,38 @@ body {
 <button id="btnStart" class="btn btn-start disabled">🟢 START</button>
 <button id="btnStop"  class="btn btn-stop disabled">🔴 STOP</button>
 
+<!-- Overlay -->
+<div id="overlay">Cihaz bağlanıyor veya offline</div>
+
 <script>
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
+const overlay  = document.getElementById("overlay");
 
 let online = false;
 let startState = 0;
 let stopState  = 0;
 
-function updateButtons() {
-  // ESP32 offline → ikisi de pasif
-  if (!online) {
-    btnStart.classList.add("disabled");
-    btnStop.classList.add("disabled");
-    return;
-  }
-
-  // START veya STOP HIGH ise → ikisi de pasif
-  if (startState === 1 || stopState === 1) {
+/* --- UI güncelleme --- */
+function updateUI() {
+  // Röle aktif veya ESP32 offline → overlay açık, butonlar kilitli
+  if (!online || startState === 1 || stopState === 1) {
+    overlay.style.display = "flex";
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
   } else {
+    overlay.style.display = "none";
     btnStart.classList.remove("disabled");
     btnStop.classList.remove("disabled");
   }
 }
 
+/* --- Sayfa açılır açılmaz KİLİT --- */
+btnStart.classList.add("disabled");
+btnStop.classList.add("disabled");
+overlay.style.display = "flex";
+
+/* --- MQTT Bağlantısı --- */
 const client = mqtt.connect(
   "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
   {
@@ -100,48 +118,41 @@ const client = mqtt.connect(
 );
 
 client.on("connect", () => {
-  online = false;
-  updateButtons();
   client.subscribe("esp32/status");
   client.subscribe("esp32/start_state");
   client.subscribe("esp32/stop_state");
 });
 
-client.on("close",   () => { online = false; updateButtons(); });
-client.on("offline", () => { online = false; updateButtons(); });
-client.on("error",   () => { online = false; updateButtons(); });
+client.on("close",   () => { online = false; updateUI(); });
+client.on("offline", () => { online = false; updateUI(); });
+client.on("error",   () => { online = false; updateUI(); });
 
 client.on("message", (topic, message) => {
   const val = message.toString();
 
-  if (topic === "esp32/status") {
-    online = (val === "1");
-  }
+  if (topic === "esp32/status") online = (val === "1");
+  if (topic === "esp32/start_state") startState = (val === "1") ? 1 : 0;
+  if (topic === "esp32/stop_state")  stopState  = (val === "1") ? 1 : 0;
 
-  if (topic === "esp32/start_state") {
-    startState = (val === "1") ? 1 : 0;
-  }
-
-  if (topic === "esp32/stop_state") {
-    stopState = (val === "1") ? 1 : 0;
-  }
-
-  updateButtons();
+  updateUI();
 });
 
-/* --- Animasyon + Telefon Titreşimi --- */
+/* --- Animasyon + titreşim --- */
 function vibrateAndAnimate(btn) {
   if (navigator.vibrate) navigator.vibrate(50);
   btn.classList.add("vibrate");
   setTimeout(() => btn.classList.remove("vibrate"), 150);
 }
 
+/* --- Buton click --- */
 btnStart.onclick = () => {
+  if (!online) return;
   client.publish("esp32/start","1");
   vibrateAndAnimate(btnStart);
 };
 
-btnStop.onclick  = () => {
+btnStop.onclick = () => {
+  if (!online) return;
   client.publish("esp32/stop","1");
   vibrateAndAnimate(btnStop);
 };
@@ -149,6 +160,7 @@ btnStop.onclick  = () => {
 
 </body>
 </html>
+
 
 
 
