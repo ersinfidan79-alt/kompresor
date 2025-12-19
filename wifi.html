@@ -96,7 +96,10 @@ function updateButtons() {
   }
 }
 
-/* 🔄 Telefon offline / online olayları */
+/* --- Sayfa açılır açılmaz offline kontrolü --- */
+updateButtons();
+
+/* --- Telefon offline / online olayları --- */
 window.addEventListener("offline", updateButtons);
 window.addEventListener("online",  updateButtons);
 
@@ -162,6 +165,7 @@ btnStop.onclick  = () => {
 
 </body>
 </html>
+
 
 
 
