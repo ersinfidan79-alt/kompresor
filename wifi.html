@@ -11,6 +11,8 @@ body {
   color:white;
   text-align:center;
   font-family:Arial;
+  margin:0;
+  padding:0;
 }
 
 .btn {
@@ -24,6 +26,7 @@ body {
   border-radius:14px;
   color:white;
   transition:0.15s;
+  display:block;
 }
 
 .btn-start { background:#00c853; }
@@ -46,6 +49,21 @@ body {
 }
 
 .vibrate { animation:vibrate 0.15s linear; }
+
+/* --- Overlay --- */
+#overlay {
+  position: fixed;
+  inset:0;
+  background: rgba(0,0,0,0.85);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight:bold;
+  z-index: 9999;
+  text-align: center;
+}
 </style>
 </head>
 
@@ -57,52 +75,52 @@ body {
 <button id="btnStart" class="btn btn-start disabled">🟢 START</button>
 <button id="btnStop"  class="btn btn-stop disabled">🔴 STOP</button>
 
+<!-- Offline / Cihaz Bağlanıyor Overlay -->
+<div id="overlay">Cihaz bağlanıyor veya offline</div>
+
 <script>
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
+const overlay  = document.getElementById("overlay");
 
 let online = false;
 let startState = 0;
 let stopState  = 0;
 
-/* 🔴 TELEFON OFFLINE KONTROLÜ (CACHE AÇILSA BİLE) */
+/* 🔴 Telefon offline kontrolü */
 function phoneOffline() {
   return !navigator.onLine;
 }
 
-function updateButtons() {
-
-  /* 1️⃣ Telefon offline ise HER ŞEY KİLİTLİ */
-  if (phoneOffline()) {
+/* --- Buton ve overlay kontrolü --- */
+function updateUI() {
+  // Telefon offline veya ESP32 offline → overlay açık, butonlar kilitli
+  if (phoneOffline() || !online) {
+    overlay.style.display = "flex";
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
     return;
   }
 
-  /* 2️⃣ ESP32 offline ise */
-  if (!online) {
-    btnStart.classList.add("disabled");
-    btnStop.classList.add("disabled");
-    return;
-  }
-
-  /* 3️⃣ Röle aktifse */
+  // Röle aktifse → overlay açık ve butonlar kilitli
   if (startState === 1 || stopState === 1) {
+    overlay.style.display = "flex";
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
-  } else {
-    btnStart.classList.remove("disabled");
-    btnStop.classList.remove("disabled");
+    return;
   }
+
+  // Her şey normal → overlay gizli, butonlar aktif
+  overlay.style.display = "none";
+  btnStart.classList.remove("disabled");
+  btnStop.classList.remove("disabled");
 }
 
-/* --- Sayfa açılır açılmaz offline kontrolü --- */
-updateButtons();
+/* --- Telefon online/offline olayları --- */
+window.addEventListener("offline", updateUI);
+window.addEventListener("online", updateUI);
 
-/* --- Telefon offline / online olayları --- */
-window.addEventListener("offline", updateButtons);
-window.addEventListener("online",  updateButtons);
-
+/* --- MQTT Bağlantısı --- */
 const client = mqtt.connect(
   "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
   {
@@ -114,16 +132,16 @@ const client = mqtt.connect(
 );
 
 client.on("connect", () => {
-  online = false;
-  updateButtons();
+  online = false; // durum kontrol edilecek
+  updateUI();
   client.subscribe("esp32/status");
   client.subscribe("esp32/start_state");
   client.subscribe("esp32/stop_state");
 });
 
-client.on("close",   () => { online = false; updateButtons(); });
-client.on("offline", () => { online = false; updateButtons(); });
-client.on("error",   () => { online = false; updateButtons(); });
+client.on("close",   () => { online = false; updateUI(); });
+client.on("offline", () => { online = false; updateUI(); });
+client.on("error",   () => { online = false; updateUI(); });
 
 client.on("message", (topic, message) => {
   const val = message.toString();
@@ -140,31 +158,36 @@ client.on("message", (topic, message) => {
     stopState = (val === "1") ? 1 : 0;
   }
 
-  updateButtons();
+  updateUI();
 });
 
-/* --- Animasyon + Titreşim --- */
+/* --- Animasyon + titreşim --- */
 function vibrateAndAnimate(btn) {
   if (navigator.vibrate) navigator.vibrate(50);
   btn.classList.add("vibrate");
   setTimeout(() => btn.classList.remove("vibrate"), 150);
 }
 
+/* --- Buton click --- */
 btnStart.onclick = () => {
-  if (phoneOffline()) return;
+  if (phoneOffline() || !online) return;
   client.publish("esp32/start","1");
   vibrateAndAnimate(btnStart);
 };
 
-btnStop.onclick  = () => {
-  if (phoneOffline()) return;
+btnStop.onclick = () => {
+  if (phoneOffline() || !online) return;
   client.publish("esp32/stop","1");
   vibrateAndAnimate(btnStop);
 };
+
+/* --- Sayfa açılır açılmaz offline kontrolü --- */
+updateUI();
 </script>
 
 </body>
 </html>
+
 
 
 
