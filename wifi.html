@@ -5,8 +5,6 @@
 <title>Kompresor Kontrol</title>
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
-  <meta name="robots" content="noindex, nofollow">
-
 <style>
 body {
   background:#0e0e0e;
@@ -37,12 +35,8 @@ body {
   filter:grayscale(100%);
 }
 
-/* Basma animasyonu */
-.btn:active {
-  transform:scale(0.92);
-}
+.btn:active { transform:scale(0.92); }
 
-/* Kısa titreşim animasyonu */
 @keyframes vibrate {
   0% { transform: translateX(0); }
   25% { transform: translateX(-3px); }
@@ -51,9 +45,7 @@ body {
   100% { transform: translateX(0); }
 }
 
-.vibrate {
-  animation:vibrate 0.15s linear;
-}
+.vibrate { animation:vibrate 0.15s linear; }
 </style>
 </head>
 
@@ -73,15 +65,28 @@ let online = false;
 let startState = 0;
 let stopState  = 0;
 
+/* 🔴 TELEFON OFFLINE KONTROLÜ (CACHE AÇILSA BİLE) */
+function phoneOffline() {
+  return !navigator.onLine;
+}
+
 function updateButtons() {
-  // ESP32 offline → ikisi de pasif
+
+  /* 1️⃣ Telefon offline ise HER ŞEY KİLİTLİ */
+  if (phoneOffline()) {
+    btnStart.classList.add("disabled");
+    btnStop.classList.add("disabled");
+    return;
+  }
+
+  /* 2️⃣ ESP32 offline ise */
   if (!online) {
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
     return;
   }
 
-  // START veya STOP HIGH ise → ikisi de pasif
+  /* 3️⃣ Röle aktifse */
   if (startState === 1 || stopState === 1) {
     btnStart.classList.add("disabled");
     btnStop.classList.add("disabled");
@@ -90,6 +95,10 @@ function updateButtons() {
     btnStop.classList.remove("disabled");
   }
 }
+
+/* 🔄 Telefon offline / online olayları */
+window.addEventListener("offline", updateButtons);
+window.addEventListener("online",  updateButtons);
 
 const client = mqtt.connect(
   "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
@@ -131,7 +140,7 @@ client.on("message", (topic, message) => {
   updateButtons();
 });
 
-/* --- Animasyon + Telefon Titreşimi --- */
+/* --- Animasyon + Titreşim --- */
 function vibrateAndAnimate(btn) {
   if (navigator.vibrate) navigator.vibrate(50);
   btn.classList.add("vibrate");
@@ -139,11 +148,13 @@ function vibrateAndAnimate(btn) {
 }
 
 btnStart.onclick = () => {
+  if (phoneOffline()) return;
   client.publish("esp32/start","1");
   vibrateAndAnimate(btnStart);
 };
 
 btnStop.onclick  = () => {
+  if (phoneOffline()) return;
   client.publish("esp32/stop","1");
   vibrateAndAnimate(btnStop);
 };
@@ -151,10 +162,6 @@ btnStop.onclick  = () => {
 
 </body>
 </html>
-
-
-
-
 
 
 
