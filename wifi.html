@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -6,17 +7,59 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
-body { background:#0e0e0e; color:white; text-align:center; font-family:Arial; }
-.btn { width:80%; max-width:300px; padding:20px; margin:15px auto;
-       font-size:22px; font-weight:bold; border:none; border-radius:14px;
-       color:white; transition:0.15s; }
+body {
+  background:#0e0e0e;
+  color:white;
+  text-align:center;
+  font-family:Arial;
+}
+
+.btn {
+  width:80%;
+  max-width:300px;
+  padding:20px;
+  margin:15px auto;
+  font-size:22px;
+  font-weight:bold;
+  border:none;
+  border-radius:14px;
+  color:white;
+  transition:0.15s;
+}
+
+/* Renkler */
 .btn-start { background:#00c853; }
 .btn-stop  { background:#d50000; }
-.disabled { opacity:0.35; pointer-events:none; filter:grayscale(100%); }
+
+/* Disabled görünüm */
+.disabled {
+  opacity:0.35;
+  pointer-events:none;
+  filter:grayscale(100%);
+}
+
+/* Basma animasyonu */
+.btn:active {
+  transform:scale(0.92);
+}
+
+/* Kısa titreşim animasyonu */
+@keyframes vibrate {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-3px); }
+  50%  { transform: translateX(3px); }
+  75%  { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+.vibrate {
+  animation:vibrate 0.15s linear;
+}
 </style>
 </head>
 
 <body>
+
 <h2>Kompresör Kontrol</h2>
 <h2>( Made in Ersin )</h2>
 
@@ -27,56 +70,84 @@ body { background:#0e0e0e; color:white; text-align:center; font-family:Arial; }
 const btnStart = document.getElementById("btnStart");
 const btnStop  = document.getElementById("btnStop");
 
-let online = false;
+let online     = false;
 let startState = 0;
 let stopState  = 0;
 let openState  = 0;
 
+/* ---------- BUTON SENARYOSU ---------- */
 function updateButtons() {
 
   // START
-  if (online && openState===0 && startState===0 && stopState===0)
+  if (online && openState === 0 && startState === 0 && stopState === 0)
     btnStart.classList.remove("disabled");
   else
     btnStart.classList.add("disabled");
 
   // STOP
-  if (online && openState===1 && startState===0 && stopState===0)
+  if (online && openState === 1 && startState === 0 && stopState === 0)
     btnStop.classList.remove("disabled");
   else
     btnStop.classList.add("disabled");
 }
 
+/* ---------- MQTT ---------- */
 const client = mqtt.connect(
   "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
-  { username:"wersin3230", password:"We112233" }
+  {
+    username:"wersin3230",
+    password:"We112233",
+    keepalive:60,
+    reconnectPeriod:2000
+  }
 );
 
 client.on("connect", () => {
-  online = true;
+  online = false;
+  updateButtons();
   client.subscribe("esp32/status");
   client.subscribe("esp32/start_state");
   client.subscribe("esp32/stop_state");
   client.subscribe("esp32/open_state");
 });
 
-client.on("close",   ()=>{ online=false; updateButtons(); });
-client.on("offline", ()=>{ online=false; updateButtons(); });
+client.on("close",   () => { online = false; updateButtons(); });
+client.on("offline", () => { online = false; updateButtons(); });
+client.on("error",   () => { online = false; updateButtons(); });
 
-client.on("message",(t,m)=>{
-  const v = m.toString();
-  if (t==="esp32/status")      online = v==="1";
-  if (t==="esp32/start_state") startState = v==="1"?1:0;
-  if (t==="esp32/stop_state")  stopState  = v==="1"?1:0;
-  if (t==="esp32/open_state")  openState  = v==="1"?1:0;
+client.on("message", (topic, message) => {
+  const val = message.toString();
+
+  if (topic === "esp32/status")      online     = (val === "1");
+  if (topic === "esp32/start_state") startState = (val === "1") ? 1 : 0;
+  if (topic === "esp32/stop_state")  stopState  = (val === "1") ? 1 : 0;
+  if (topic === "esp32/open_state")  openState  = (val === "1") ? 1 : 0;
+
   updateButtons();
 });
 
-btnStart.onclick = ()=> client.publish("esp32/start","1");
-btnStop.onclick  = ()=> client.publish("esp32/stop","1");
+/* ---------- TİTREŞİM + ANİMASYON ---------- */
+function vibrateAndAnimate(btn) {
+  if (navigator.vibrate) navigator.vibrate(50); // Android titreşim
+  btn.classList.add("vibrate");
+  setTimeout(() => btn.classList.remove("vibrate"), 150);
+}
+
+/* ---------- BUTONLAR ---------- */
+btnStart.onclick = () => {
+  client.publish("esp32/start","1");
+  vibrateAndAnimate(btnStart);
+};
+
+btnStop.onclick = () => {
+  client.publish("esp32/stop","1");
+  vibrateAndAnimate(btnStop);
+};
 </script>
+
 </body>
 </html>
+
 
 
 
