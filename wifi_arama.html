@@ -1,77 +1,85 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
 <title>ESP32 BLE WiFi</title>
+
 <style>
 body{background:#111;color:#eee;font-family:Arial;text-align:center}
-button{padding:10px 18px;margin:5px}
+button{padding:10px 18px;margin:5px;font-size:15px}
 li{background:#222;margin:5px;padding:8px;border-radius:6px}
 </style>
 </head>
-<body>
 
+<body>
 <h2>ESP32 BLE WiFi Manager</h2>
 
 <button onclick="connectBLE()">BLE Bağlan</button>
-<button onclick="scan()">WiFi Tara</button>
+<button onclick="scanWifi()">WiFi Tara</button>
 
 <ul id="list"></ul>
 
+<h3>WiFi Bağlan</h3>
 <input id="ssid" placeholder="SSID"><br><br>
-<input id="pass" type="password" placeholder="Şifre"><br><br>
+<input id="pass" placeholder="Şifre" type="password"><br><br>
 <button onclick="connectWifi()">Bağlan</button>
 
 <h3 id="rssi">RSSI: -</h3>
 
 <script>
 let ch;
-const SERVICE="00001234-0000-1000-8000-00805f9b34fb";
-const CHAR="0000abcd-0000-1000-8000-00805f9b34fb";
+
+const SERVICE = '00001234-0000-1000-8000-00805f9b34fb';
+const CHAR    = '0000abcd-0000-1000-8000-00805f9b34fb';
 
 async function connectBLE(){
-  const d = await navigator.bluetooth.requestDevice({
-    acceptAllDevices:true,
-    optionalServices:[SERVICE]
+  const device = await navigator.bluetooth.requestDevice({
+    filters:[{services:[SERVICE]}]
   });
-  const s = await d.gatt.connect();
-  const sv = await s.getPrimaryService(SERVICE);
-  ch = await sv.getCharacteristic(CHAR);
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE);
+  ch = await service.getCharacteristic(CHAR);
+
   await ch.startNotifications();
-  ch.addEventListener("characteristicvaluechanged", onNotify);
-  alert("BLE Bağlandı");
+  ch.addEventListener('characteristicvaluechanged', onNotify);
+
+  alert("BLE bağlı");
 }
 
-function scan(){
-  list.innerHTML="Taraniyor...";
+function scanWifi(){
+  document.getElementById("list").innerHTML="Taraniyor...";
   ch.writeValue(new TextEncoder().encode("SCAN"));
 }
 
 function connectWifi(){
-  ch.writeValue(new TextEncoder().encode(
-    `CONNECT:${ssid.value}|${pass.value}`
-  ));
+  const s = ssid.value;
+  const p = pass.value;
+  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
 }
 
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
 
-  if(v.startsWith("RSSI:")){
-    rssi.innerText=v;
+  if (v.startsWith("RSSI:")) {
+    rssi.innerText = v;
     return;
   }
 
-  if(v=="CONNECTED"||v=="FAILED"){
+  if (v === "CONNECTED" || v === "FAILED") {
     alert(v);
     return;
   }
 
   list.innerHTML="";
-  v.split(";").forEach(x=>{
-    if(!x)return;
-    const [s,r]=x.split(",");
-    list.innerHTML+=`<li><b>${s}</b><br>RSSI:${r}</li>`;
+  v.split(";").forEach(n=>{
+    if(!n) return;
+    const [s,r]=n.split(",");
+    const li=document.createElement("li");
+    li.innerHTML=`<b>${s}</b><br>RSSI: ${r}`;
+    list.appendChild(li);
   });
 }
 </script>
