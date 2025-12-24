@@ -1,138 +1,87 @@
-
-  
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="googlebot" content="noindex,nofollow">
+<title>ESP32 BLE WiFi</title>
 
-  <!-- INDEX ENGELLE -->
-  <meta name="robots" content="noindex, nofollow">
-  <meta name="googlebot" content="noindex, nofollow">
-
-  <title>ESP32 BLE WiFi Tarama</title>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
-      text-align: center;
-      padding: 20px;
-    }
-
-    button {
-      padding: 12px 20px;
-      margin: 10px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-    }
-
-    #connect { background: #2196f3; color: white; }
-    #scan    { background: #4caf50; color: white; }
-
-    ul {
-      list-style: none;
-      padding: 0;
-      max-width: 500px;
-      margin: auto;
-    }
-
-    li {
-      background: #222;
-      margin: 6px 0;
-      padding: 10px;
-      border-radius: 6px;
-      text-align: left;
-      font-size: 14px;
-    }
-
-    .strong { color: #4caf50; }
-    .medium { color: #ffc107; }
-    .weak   { color: #f44336; }
-  </style>
+<style>
+body{background:#111;color:#eee;font-family:Arial;text-align:center}
+button{padding:10px 18px;margin:5px;font-size:15px}
+li{background:#222;margin:5px;padding:8px;border-radius:6px}
+</style>
 </head>
 
 <body>
+<h2>ESP32 BLE WiFi Manager</h2>
 
-  <h2>ESP32 BLE WiFi Tarama</h2>
+<button onclick="connectBLE()">BLE Bağlan</button>
+<button onclick="scanWifi()">WiFi Tara</button>
 
-  <button id="connect">🔵 BLE Bağlan</button>
-  <button id="scan" disabled>📡 WiFi Tara</button>
+<ul id="list"></ul>
 
-  <ul id="list"></ul>
+<h3>WiFi Bağlan</h3>
+<input id="ssid" placeholder="SSID"><br><br>
+<input id="pass" placeholder="Şifre" type="password"><br><br>
+<button onclick="connectWifi()">Bağlan</button>
+
+<h3 id="rssi">RSSI: -</h3>
 
 <script>
-let device, server, service, characteristic;
+let ch;
 
-// ⚠️ ESP32 KODUYLA AYNI OLMALI
-const SERVICE_UUID = '00001234-0000-1000-8000-00805f9b34fb';
-const CHAR_UUID    = '0000abcd-0000-1000-8000-00805f9b34fb';
+const SERVICE = '00001234-0000-1000-8000-00805f9b34fb';
+const CHAR    = '0000abcd-0000-1000-8000-00805f9b34fb';
 
-const connectBtn = document.getElementById('connect');
-const scanBtn    = document.getElementById('scan');
-const list       = document.getElementById('list');
+async function connectBLE(){
+  const device = await navigator.bluetooth.requestDevice({
+    filters:[{services:[SERVICE]}]
+  });
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE);
+  ch = await service.getCharacteristic(CHAR);
 
-// ---------------- BLE CONNECT ----------------
-connectBtn.onclick = async () => {
-  try {
-    device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }]
-    });
+  await ch.startNotifications();
+  ch.addEventListener('characteristicvaluechanged', onNotify);
 
-    server = await device.gatt.connect();
-    service = await server.getPrimaryService(SERVICE_UUID);
-    characteristic = await service.getCharacteristic(CHAR_UUID);
+  alert("BLE bağlı");
+}
 
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', onNotify);
+function scanWifi(){
+  document.getElementById("list").innerHTML="Taraniyor...";
+  ch.writeValue(new TextEncoder().encode("SCAN"));
+}
 
-    scanBtn.disabled = false;
-    alert("BLE bağlandı");
+function connectWifi(){
+  const s = ssid.value;
+  const p = pass.value;
+  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
+}
 
-  } catch (e) {
-    alert("BLE bağlantı hatası");
-    console.error(e);
+function onNotify(e){
+  const v = new TextDecoder().decode(e.target.value);
+
+  if (v.startsWith("RSSI:")) {
+    rssi.innerText = v;
+    return;
   }
-};
 
-// ---------------- WIFI SCAN ----------------
-scanBtn.onclick = async () => {
-  list.innerHTML = "<li>⏳ Tarama yapılıyor...</li>";
-  await characteristic.writeValue(new TextEncoder().encode("SCAN"));
-};
+  if (v === "CONNECTED" || v === "FAILED") {
+    alert(v);
+    return;
+  }
 
-// ---------------- NOTIFY CALLBACK ----------------
-function onNotify(event) {
-  const value = new TextDecoder().decode(event.target.value);
-  list.innerHTML = "";
-
-  // Format: SSID,RSSI;SSID,RSSI;
-  const networks = value.split(";");
-
-  networks.forEach(n => {
-    if (!n) return;
-    const parts = n.split(",");
-    if (parts.length !== 2) return;
-
-    const ssid = parts[0];
-    const rssi = parseInt(parts[1]);
-
-    let cls = "weak";
-    if (rssi > -60) cls = "strong";
-    else if (rssi > -75) cls = "medium";
-
-    const li = document.createElement("li");
-    li.className = cls;
-    li.innerHTML = `
-      <b>${ssid}</b><br>
-      RSSI: ${rssi} dBm
-    `;
+  list.innerHTML="";
+  v.split(";").forEach(n=>{
+    if(!n) return;
+    const [s,r]=n.split(",");
+    const li=document.createElement("li");
+    li.innerHTML=`<b>${s}</b><br>RSSI: ${r}`;
     list.appendChild(li);
   });
 }
 </script>
-
 </body>
 </html>
+
