@@ -1,23 +1,28 @@
 
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>ESP32 WiFi Setup</title>
+<title>ESP32 WiFi Kurulum</title>
 <meta name="robots" content="noindex,nofollow">
 <style>
 body { background:#0f172a; color:#e5e7eb; font-family:Arial; text-align:center; }
-button, select, input { padding:10px; width:90%; margin:6px; border-radius:6px; }
-option { padding:6px; }
+button, select, input {
+  padding:10px; width:90%; margin:6px; border-radius:6px;
+}
+option.weak { color:#fca5a5; }
+option.mid  { color:#fde68a; }
+option.good { color:#86efac; }
 #status { margin-top:10px; font-weight:bold; }
 </style>
 </head>
 <body>
 
-<h2>ESP32 WiFi Kurulum</h2>
+<h2>ESP32 WiFi Kurulumu</h2>
 <button onclick="connect()">ESP32’ye Bağlan</button>
 
-<select id="wifi"></select>
+<select id="wifi" size="8"></select>
 <input id="pass" type="password" placeholder="WiFi Şifresi">
 <button onclick="send()">Bağlan</button>
 
@@ -25,16 +30,23 @@ option { padding:6px; }
 
 <script>
 let service;
+
 const SERVICE = '12345678-1234-1234-1234-1234567890ab';
-const LIST = '12345678-1234-1234-1234-1234567890ac';
-const CRED = '12345678-1234-1234-1234-1234567890ad';
-const STATUS = '12345678-1234-1234-1234-1234567890ae';
+const LIST    = '12345678-1234-1234-1234-1234567890ac';
+const CRED    = '12345678-1234-1234-1234-1234567890ad';
+const STATUS  = '12345678-1234-1234-1234-1234567890ae';
 
 function bars(rssi){
-  if(rssi > -50) return "📶📶📶📶";
-  if(rssi > -65) return "📶📶📶";
-  if(rssi > -75) return "📶📶";
+  if (rssi > -50) return "📶📶📶📶";
+  if (rssi > -65) return "📶📶📶";
+  if (rssi > -75) return "📶📶";
   return "📶";
+}
+
+function qualityClass(rssi){
+  if (rssi > -60) return "good";
+  if (rssi > -75) return "mid";
+  return "weak";
 }
 
 async function connect(){
@@ -62,9 +74,12 @@ function render(data){
   data.split(',').forEach(row=>{
     if(!row) return;
     let [ssid, sec, rssi] = row.split('|');
+    rssi = parseInt(rssi);
+
     let opt = document.createElement('option');
     opt.value = ssid;
-    opt.innerText = `${bars(parseInt(rssi))} ${ssid} (${rssi} dBm)`;
+    opt.className = qualityClass(rssi);
+    opt.innerText = `${bars(rssi)} ${ssid} (${rssi} dBm)`;
     wifi.appendChild(opt);
   });
 }
@@ -80,5 +95,3 @@ async function send(){
 
 </body>
 </html>
-
-
