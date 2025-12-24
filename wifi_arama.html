@@ -1,109 +1,194 @@
+
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<title>KOMPRESOR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex,nofollow">
-<meta name="googlebot" content="noindex,nofollow">
-<title>ESP32 BLE WiFi Manager</title>
 
 <style>
-body{background:#111;color:#eee;font-family:Arial;text-align:center}
-button{padding:10px 18px;margin:6px;font-size:15px}
-li{background:#222;margin:5px;padding:8px;border-radius:6px}
-input{padding:8px;width:200px}
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(to bottom right, #74ebd5, #ACB6E5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    width: 95%;
+    max-width: 500px;
+    text-align: center;
+}
+
+h2 { color:#fff; text-shadow:1px 1px 3px rgba(0,0,0,.3); }
+
+button,input {
+    width:100%;
+    font-size:1.2em;
+    padding:14px;
+    margin:6px 0;
+    border-radius:14px;
+    border:none;
+}
+
+button {
+    background:#007bff;
+    color:white;
+    box-shadow:0 6px 15px rgba(0,0,0,.3);
+}
+button:active { transform:scale(.95); }
+
+input { text-align:center; }
+
+ul {
+    list-style:none;
+    padding:0;
+    margin:10px 0;
+    max-height:180px;
+    overflow:auto;
+}
+
+li {
+    background:rgba(0,0,0,.25);
+    margin:5px 0;
+    padding:10px;
+    border-radius:10px;
+    color:#fff;
+    cursor:pointer;
+}
+
+.toast {
+    position:fixed;
+    bottom:-100px;
+    left:50%;
+    transform:translateX(-50%);
+    padding:14px 24px;
+    border-radius:40px;
+    color:white;
+    font-size:1.1em;
+    transition:.4s;
+    opacity:0;
+    z-index:9999;
+}
+.toast.show { bottom:30px; opacity:1; }
+.toast.success { background:#28a745; }
+.toast.warn { background:#ff9800; }
+.toast.error { background:#dc3545; }
 </style>
 </head>
 
 <body>
 
-<h2>ESP32 BLE WiFi Manager</h2>
+<div id="toast" class="toast"></div>
 
-<button onclick="connectBLE()">🔵 BLE BAĞLAN</button>
-<button onclick="scanWifi()">📡 WiFi TARA</button>
+<div class="container">
 
-<ul id="list"></ul>
+<h2>Bluetooth</h2>
+<button id="btnConnect">BLE Bağlan</button>
 
-<h3>WiFi Bağlan</h3>
-<input id="ssid" placeholder="SSID"><br><br>
-<input id="pass" placeholder="Şifre" type="password"><br><br>
-<button onclick="connectWifi()">🔗 BAĞLAN</button>
+<h2>Wi-Fi</h2>
+<button onclick="scanWifi()">Wi-Fi Tara</button>
+<ul id="wifiList"></ul>
 
-<h3 id="rssi">RSSI: -</h3>
-<pre id="log"></pre>
+<input id="ssid" placeholder="SSID">
+<input id="pass" placeholder="Şifre" type="password">
+<button onclick="connectWifi()">Wi-Fi Bağlan</button>
+
+<h2 id="rssi">RSSI: -</h2>
+
+<h2>Komut</h2>
+<button onclick="sendCommand('START')">START</button>
+<button onclick="sendCommand('STOP')">STOP</button>
+<button onclick="sendCommand('RESET')">RESET</button>
+
+</div>
 
 <script>
-let ch;
-const log = t => document.getElementById("log").textContent += t + "\n";
+let device, characteristic;
 
-const SERVICE = '00001234-0000-1000-8000-00805f9b34fb';
-const CHAR    = '0000abcd-0000-1000-8000-00805f9b34fb';
+const SERVICE = "00001234-0000-1000-8000-00805f9b34fb";
+const CHAR    = "0000abcd-0000-1000-8000-00805f9b34fb";
 
-async function connectBLE(){
+function toast(type,msg){
+  const t=document.getElementById("toast");
+  t.className="toast "+type;
+  t.innerHTML=msg;
+  t.classList.add("show");
+  if(navigator.vibrate) navigator.vibrate(80);
+  setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+btnConnect.onclick = async ()=>{
   try{
-    log("BLE araniyor...");
-
-    const device = await navigator.bluetooth.requestDevice({
-      filters:[{services:[SERVICE]}]
+    device = await navigator.bluetooth.requestDevice({
+      filters:[{ name:"KOMPRESOR" }],
+      optionalServices:[SERVICE]
     });
-
-    log("Cihaz: " + device.name);
 
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(SERVICE);
-    ch = await service.getCharacteristic(CHAR);
+    characteristic = await service.getCharacteristic(CHAR);
 
-    await ch.startNotifications();
-    ch.addEventListener('characteristicvaluechanged', onNotify);
+    await characteristic.startNotifications();
+    characteristic.addEventListener("characteristicvaluechanged", onNotify);
 
-    alert("BLE BAĞLANDI");
+    toast("success","BLE bağlı");
   }catch(e){
-    alert("BLE HATA");
-    log(e);
+    toast("warn","BLE bağlanamadı");
   }
+};
+
+function sendCommand(cmd){
+  if(!characteristic) return toast("warn","Önce BLE bağlan");
+  characteristic.writeValue(new TextEncoder().encode(cmd));
 }
 
 function scanWifi(){
-  if(!ch){ alert("Önce BLE bağlan"); return; }
-  list.innerHTML = "<li>Taranıyor...</li>";
-  ch.writeValue(new TextEncoder().encode("SCAN"));
+  if(!characteristic) return toast("warn","BLE yok");
+  document.getElementById("wifiList").innerHTML="Taranıyor...";
+  characteristic.writeValue(new TextEncoder().encode("SCAN"));
 }
 
 function connectWifi(){
-  if(!ch){ alert("BLE yok"); return; }
-  const s = ssid.value;
-  const p = pass.value;
-  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
+  const s=ssid.value, p=pass.value;
+  if(!s) return;
+  characteristic.writeValue(
+    new TextEncoder().encode(`CONNECT:${s}|${p}`)
+  );
 }
 
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
-  log("RX: " + v);
 
-  if (v.startsWith("RSSI:")){
-    rssi.innerText = v;
+  if(v.startsWith("RSSI:")){
+    rssi.innerText=v;
     return;
   }
 
-  if (v === "CONNECTED" || v === "FAILED"){
-    alert(v);
+  if(v==="CONNECTED"||v==="FAILED"){
+    toast(v==="CONNECTED"?"success":"error",v);
     return;
   }
 
-  list.innerHTML="";
-  v.split(";").forEach(n=>{
-    if(!n) return;
-    const [s,r] = n.split(",");
-    const li = document.createElement("li");
-    li.innerHTML = `<b>${s}</b><br>RSSI: ${r}`;
-    li.onclick = ()=> ssid.value = s;
-    list.appendChild(li);
+  wifiList.innerHTML="";
+  v.split(";").forEach(x=>{
+    if(!x) return;
+    const [s,r]=x.split(",");
+    const li=document.createElement("li");
+    li.innerHTML=`<b>${s}</b><br>RSSI: ${r}`;
+    li.onclick=()=>ssid.value=s;
+    wifiList.appendChild(li);
   });
 }
 </script>
 
 </body>
 </html>
-
 
 
 
