@@ -9,7 +9,9 @@
 <style>
 body{background:#111;color:#eee;font-family:Arial;text-align:center}
 button{padding:10px 18px;margin:5px;font-size:15px}
-li{background:#222;margin:5px;padding:8px;border-radius:6px}
+li{background:#222;margin:6px;padding:10px;border-radius:8px}
+.bar{height:8px;background:#444;border-radius:5px;margin-top:5px}
+.fill{height:8px;border-radius:5px}
 </style>
 </head>
 
@@ -30,13 +32,13 @@ li{background:#222;margin:5px;padding:8px;border-radius:6px}
 
 <script>
 let ch;
-
 const SERVICE = '00001234-0000-1000-8000-00805f9b34fb';
 const CHAR    = '0000abcd-0000-1000-8000-00805f9b34fb';
 
 async function connectBLE(){
   const device = await navigator.bluetooth.requestDevice({
-    filters:[{services:[SERVICE]}]
+    acceptAllDevices:true,
+    optionalServices:[SERVICE]
   });
   const server = await device.gatt.connect();
   const service = await server.getPrimaryService(SERVICE);
@@ -45,39 +47,45 @@ async function connectBLE(){
   await ch.startNotifications();
   ch.addEventListener('characteristicvaluechanged', onNotify);
 
-  alert("BLE bağlı");
+  alert("BLE bağlı: " + device.name);
 }
 
 function scanWifi(){
-  document.getElementById("list").innerHTML="Taraniyor...";
+  list.innerHTML="Taranıyor...";
   ch.writeValue(new TextEncoder().encode("SCAN"));
 }
 
 function connectWifi(){
-  const s = ssid.value;
-  const p = pass.value;
-  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
+  ch.writeValue(new TextEncoder().encode(
+    `CONNECT:${ssid.value}|${pass.value}`
+  ));
+}
+
+function rssiBar(v){
+  let p = Math.min(100, Math.max(0, 2*(v+100)));
+  let c = v>-60?"#0f0":v>-75?"#ff0":"#f00";
+  return `<div class="bar"><div class="fill" style="width:${p}%;background:${c}"></div></div>`;
 }
 
 function onNotify(e){
   const v = new TextDecoder().decode(e.target.value);
 
-  if (v.startsWith("RSSI:")) {
-    rssi.innerText = v;
+  if(v.startsWith("RSSI:")){
+    rssi.innerText=v;
     return;
   }
 
-  if (v === "CONNECTED" || v === "FAILED") {
+  if(v==="CONNECTED"||v==="FAILED"){
     alert(v);
     return;
   }
 
   list.innerHTML="";
-  v.split(";").forEach(n=>{
-    if(!n) return;
-    const [s,r]=n.split(",");
+  v.split(";").forEach(x=>{
+    if(!x) return;
+    const [s,r]=x.split(",");
     const li=document.createElement("li");
-    li.innerHTML=`<b>${s}</b><br>RSSI: ${r}`;
+    li.innerHTML=`<b>${s}</b><br>RSSI:${r}${rssiBar(+r)}`;
     list.appendChild(li);
   });
 }
