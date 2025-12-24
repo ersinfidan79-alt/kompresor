@@ -38,8 +38,10 @@ const CHAR    = '0000abcd-0000-1000-8000-00805f9b34fb';
 async function connectBLE(){
   try{
     const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices:true,
-      optionalServices:[SERVICE]
+      filters:[
+        { name: "KOMPRESOR" },
+        { services: [SERVICE] }
+      ]
     });
 
     const server = await device.gatt.connect();
@@ -50,8 +52,10 @@ async function connectBLE(){
     ch.addEventListener('characteristicvaluechanged', onNotify);
 
     stat.innerText = "Durum: BLE bağlı → " + device.name;
-  }catch(e){
-    alert("BLE bağlanamadı");
+  }
+  catch(e){
+    alert("BLE bağlanamadı!");
+    console.error(e);
   }
 }
 
@@ -62,10 +66,12 @@ function scanWifi(){
 }
 
 function connectWifi(){
-  const s = ssid.value;
-  const p = pass.value;
-  if(!s) return;
-  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
+  if(!ch) return;
+  ch.writeValue(
+    new TextEncoder().encode(
+      `CONNECT:${ssid.value}|${pass.value}`
+    )
+  );
 }
 
 function onNotify(e){
@@ -81,7 +87,7 @@ function onNotify(e){
     return;
   }
 
-  list.innerHTML = "";
+  list.innerHTML="";
   v.split(";").forEach(n=>{
     if(!n) return;
     const [s,r] = n.split(",");
