@@ -2,19 +2,32 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>ESP32 BLE</title>
+<title>ESP32 BLE WiFi Manager</title>
 <meta name="robots" content="noindex,nofollow">
 <style>
 body{background:#111;color:#eee;font-family:Arial;text-align:center}
-button{padding:10px 18px;margin:5px}
+button{padding:10px 18px;margin:6px}
+li{background:#222;margin:6px;padding:8px;border-radius:6px;cursor:pointer}
+input{padding:8px;width:200px}
 </style>
 </head>
 
 <body>
-<h2>ESP32 BLE Manager</h2>
+<h2>ESP32 BLE WiFi Manager</h2>
 
 <button onclick="connectBLE()">BLE Bağlan</button>
+<button onclick="scanWifi()">Wi-Fi Tara</button>
+
 <p id="stat">Durum: -</p>
+
+<ul id="list"></ul>
+
+<h3>Wi-Fi Bağlan</h3>
+<input id="ssid" placeholder="SSID"><br><br>
+<input id="pass" type="password" placeholder="Şifre"><br><br>
+<button onclick="connectWifi()">Bağlan</button>
+
+<h3 id="rssi">RSSI: -</h3>
 
 <script>
 let ch;
@@ -33,16 +46,55 @@ async function connectBLE(){
     const service = await server.getPrimaryService(SERVICE);
     ch = await service.getCharacteristic(CHAR);
 
-    document.getElementById("stat").innerText =
-      "Durum: BLE bağlı → " + device.name;
+    await ch.startNotifications();
+    ch.addEventListener('characteristicvaluechanged', onNotify);
 
+    stat.innerText = "Durum: BLE bağlı → " + device.name;
   }catch(e){
-    alert("BLE bulunamadı / bağlanamadı");
-    console.error(e);
+    alert("BLE bağlanamadı");
   }
+}
+
+function scanWifi(){
+  if(!ch) return alert("Önce BLE bağla");
+  list.innerHTML = "Taranıyor...";
+  ch.writeValue(new TextEncoder().encode("SCAN"));
+}
+
+function connectWifi(){
+  const s = ssid.value;
+  const p = pass.value;
+  if(!s) return;
+  ch.writeValue(new TextEncoder().encode(`CONNECT:${s}|${p}`));
+}
+
+function onNotify(e){
+  const v = new TextDecoder().decode(e.target.value);
+
+  if(v.startsWith("RSSI:")){
+    rssi.innerText = v;
+    return;
+  }
+
+  if(v === "CONNECTED" || v === "FAILED"){
+    alert(v);
+    return;
+  }
+
+  list.innerHTML = "";
+  v.split(";").forEach(n=>{
+    if(!n) return;
+    const [s,r] = n.split(",");
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${s}</b><br>RSSI: ${r}`;
+    li.onclick = ()=> ssid.value = s;
+    list.appendChild(li);
+  });
 }
 </script>
 </body>
 </html>
+
+
 
 
