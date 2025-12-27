@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kompresor Kontrol</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body {
+  background:#0e0e0e;
+  color:white;
+  text-align:center;
+  font-family:Arial;
+}
+
+.btn {
+  width:80%;
+  max-width:300px;
+  padding:20px;
+  margin:15px auto;
+  font-size:22px;
+  font-weight:bold;
+  border:none;
+  border-radius:14px;
+  color:white;
+  transition:0.15s;
+}
+
+.btn-start { background:#00c853; }
+.btn-stop  { background:#d50000; }
+
+.disabled {
+  opacity:0.35;
+  pointer-events:none;
+  filter:grayscale(100%);
+}
+
+/* Basma animasyonu */
+.btn:active {
+  transform:scale(0.92);
+}
+
+/* Kısa titreşim animasyonu */
+@keyframes vibrate {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+
+.vibrate {
+  animation:vibrate 0.15s linear;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Kompresör Kontrol</h2>
+<h2></h2>
+<h2>( Made in Ersin )</h2>
+
+
+
+<button id="btnStart" class="btn btn-start disabled">🟢 START</button>
+<button id="btnStop"  class="btn btn-stop disabled">🔴 STOP</button>
+
+<script>
+const btnStart = document.getElementById("btnStart");
+const btnStop  = document.getElementById("btnStop");
+
+function setButtons(active) {
+  btnStart.classList.toggle("disabled", !active);
+  btnStop.classList.toggle("disabled", !active);
+}
+
+// varsayılan: pasif
+setButtons(false);
+
+const client = mqtt.connect(
+  "wss://356d2463ef40488694ce4fe2d4a23976.s1.eu.hivemq.cloud:8884/mqtt",
+  {
+    username:"wersin3230",
+    password:"We112233",
+    keepalive:60,
+    reconnectPeriod:2000
+  }
+);
+
+client.on("connect", () => {
+  setButtons(false);
+  client.subscribe("esp32/status");
+});
+
+client.on("close",   () => setButtons(false));
+client.on("offline", () => setButtons(false));
+client.on("error",   () => setButtons(false));
+
+client.on("message", (topic, message) => {
+  if (topic === "esp32/status") {
+    setButtons(message.toString() === "1");
+  }
+});
+
+/* ---- SADECE EKLENEN KISIM ---- */
+
+function vibrateAndAnimate(btn) {
+  // Telefon titreşimi (Android)
+  if (navigator.vibrate) {
+    navigator.vibrate(50);
+  }
+
+  // Buton animasyonu
+  btn.classList.add("vibrate");
+  setTimeout(() => btn.classList.remove("vibrate"), 150);
+}
+
+btnStart.onclick = () => {
+  client.publish("esp32/start","1");
+  vibrateAndAnimate(btnStart);
+};
+
+btnStop.onclick  = () => {
+  client.publish("esp32/stop","1");
+  vibrateAndAnimate(btnStop);
+};
+</script>
+
+</body>
+</html>
