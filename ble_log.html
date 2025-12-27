@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -16,73 +18,108 @@ html, body {
     align-items: center;
 }
 
-.container {
-    width: 95%;
-    max-width: 520px;
-    background: rgba(0,0,0,0.15);
-    padding: 20px;
-    border-radius: 20px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+.toast {
+    position: fixed;
+    bottom: -120px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 15px 25px;
+    border-radius: 50px;
     color: white;
+    font-size: 1.4em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transition: all 0.45s ease;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    z-index: 999999;
 }
 
-h2 {
+.toast.show { bottom: 40px; opacity: 1; }
+.toast.success { background: rgba(40,167,69,0.88); }
+.toast.error   { background: rgba(220,53,69,0.88); }
+.toast.warn    { background: rgba(255,165,0,0.88); }
+
+.container {
     text-align: center;
-    margin-bottom: 15px;
+    width: 95%;
+    max-width: 500px;
+    padding: 20px;
+    box-sizing: border-box;
 }
+
+h2 { color: #fff; margin-bottom: 20px; font-size: 2em; text-shadow: 1px 1px 3px rgba(0,0,0,0.3); }
 
 .button-group {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 20px;
+    width: 100%;
 }
 
-button {
-    padding: 18px;
-    font-size: 1.4em;
-    border-radius: 16px;
+.button-group button {
+    width: 100%;
+    font-size: 2em;
+    padding: 20px 0;
     border: none;
+    border-radius: 20px;
     cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.35);
     color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    box-sizing: border-box;
+    background-size: 200% 100%;
+    transition: all 0.3s ease, background-position 0.5s ease;
 }
 
-#btnConnect { background: linear-gradient(135deg,#007bff,#00bfff); }
-#btnStart   { background: linear-gradient(135deg,#28a745,#218838); }
-#btnStop    { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
-#btnReset   { background: linear-gradient(135deg,#8e44ad,#c0392b); }
-#btnToggle  { background: linear-gradient(135deg,#ff9900,#ffcc33); }
+.button-group button:active { transform: scale(0.95); }
+.button-group button:hover { transform: scale(1.05); }
 
-button.disabled {
-    opacity: 0.5;
-    pointer-events: none;
-}
+#btnConnect  { background: linear-gradient(135deg, #007bff, #00bfff); }
+button[onclick*="START"]  { background: linear-gradient(135deg, #28a745, #218838); }
+button[onclick*="STOP"]   { background: linear-gradient(135deg, #dc3545, #ff4c4c); }
+button[onclick*="RESET"]  { background: linear-gradient(135deg, #8e44ad, #c0392b); }
+button[onclick*="TOGGLE_LOG"] { background: linear-gradient(135deg, #ff9900, #ffcc33); }
+
+button.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+button.connected { opacity: 0.6; cursor: pointer; }
 
 #logArea {
-    margin-top: 20px;
-    height: 220px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 12px;
-    padding: 10px;
-    font-family: monospace;
+    margin-top: 25px;
+    padding: 15px;
+    height: 200px;
+    width: 100%;
+    border-radius: 15px;
+    background: rgba(255,255,255,0.2);
     overflow-y: auto;
-    font-size: 0.85em;
+    color: #fff;
+    font-family: monospace;
+    font-size: 0.9em;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 </style>
 </head>
-
 <body>
+
+<div id="toast" class="toast"></div>
+
 <div class="container">
     <h2>Bluetooth</h2>
     <div class="button-group">
-        <button id="btnConnect">Bağlan</button>
+        <button id="btnConnect"><i class="fas fa-bluetooth"></i> Bağlan</button>
     </div>
 
-    <h2>Komutlar</h2>
+    <h2>Komut Gönder</h2>
     <div class="button-group">
-        <button id="btnStart"  onclick="sendCommand('START')">START</button>
-        <button id="btnStop"   onclick="sendCommand('STOP')">STOP</button>
-        <button id="btnReset"  onclick="sendCommand('RESET')">RESET</button>
-        <button id="btnToggle" onclick="toggleLog()">LOG TOGGLE</button>
+        <button id="btnStart" onclick="sendCommand('START')"><i class="fas fa-play"></i> START</button>
+        <button id="btnStop" onclick="sendCommand('STOP')"><i class="fas fa-stop"></i> STOP</button>
+        <button id="btnReset" onclick="sendCommand('RESET')"><i class="fas fa-power-off"></i> RESET</button>
+        <button id="btnToggleLog" onclick="sendCommand('TOGGLE_LOG')"><i class="fas fa-stream"></i> Log Toggle</button>
     </div>
 
     <div id="logArea"></div>
@@ -90,15 +127,44 @@ button.disabled {
 
 <script>
 let device;
-let commandChar;
-let logChar;
+let characteristic;
+let logCharacteristic;
 
-const buttons = document.querySelectorAll("button:not(#btnConnect)");
-buttons.forEach(b => b.classList.add("disabled"));
-
+const btnConnect = document.getElementById("btnConnect");
+const commandButtons = [
+    document.getElementById("btnStart"), 
+    document.getElementById("btnStop"), 
+    document.getElementById("btnReset"),
+    document.getElementById("btnToggleLog")
+];
 const logArea = document.getElementById("logArea");
 
-document.getElementById("btnConnect").onclick = async () => {
+// Başlangıçta komut butonlarını pasif yap
+commandButtons.forEach(btn => btn.classList.add("disabled"));
+
+function showToast(type, msg) {
+    let toast = document.getElementById("toast");
+    toast.className = "toast " + type;
+    toast.innerHTML = msg;
+    toast.classList.add("show");
+    if (navigator.vibrate) navigator.vibrate([80]);
+    setTimeout(() => { toast.classList.remove("show"); }, 2200);
+}
+
+// BLE bağlantı kontrolü
+async function checkConnection() {
+    if (!device || !device.gatt.connected) {
+        characteristic = null;
+        logCharacteristic = null;
+        commandButtons.forEach(btn => btn.classList.add("disabled"));
+        btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> Bağlan";
+        btnConnect.classList.remove("connected");
+    }
+}
+setInterval(checkConnection, 2000);
+
+// BLE bağlan
+btnConnect.onclick = async () => {
     try {
         device = await navigator.bluetooth.requestDevice({
             filters: [{ name: "KOMPRESOR" }],
@@ -110,40 +176,50 @@ document.getElementById("btnConnect").onclick = async () => {
 
         const server = await device.gatt.connect();
 
-        // Komut servisi
-        const cmdService = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
-        commandChar = await cmdService.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
+        // Komut characteristic
+        const service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
+        characteristic = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
 
-        // Log servisi
+        // Log characteristic
         const logService = await server.getPrimaryService("00005678-0000-1000-8000-00805f9b34fb");
-        logChar = await logService.getCharacteristic("00001234-0000-1000-8000-00805f9b34fc");
-
-        await logChar.startNotifications();
-        logChar.addEventListener("characteristicvaluechanged", e => {
-            const text = new TextDecoder().decode(e.target.value);
-            logArea.innerHTML += text + "<br>";
+        logCharacteristic = await logService.getCharacteristic("00001234-0000-1000-8000-00805f9b34fc");
+        await logCharacteristic.startNotifications();
+        logCharacteristic.addEventListener('characteristicvaluechanged', e => {
+            let value = '';
+            if (e.target.value instanceof DataView) {
+                value = new TextDecoder('utf-8').decode(e.target.value);
+            } else if (e.target.value instanceof ArrayBuffer) {
+                value = new TextDecoder('utf-8').decode(new Uint8Array(e.target.value));
+            } else {
+                value = e.target.value;
+            }
+            logArea.innerHTML += value + "<br>";
             logArea.scrollTop = logArea.scrollHeight;
         });
 
-        buttons.forEach(b => b.classList.remove("disabled"));
-        document.getElementById("btnConnect").innerText = "BAĞLI";
-    }
-    catch (e) {
-        alert("Bluetooth bağlanamadı");
-        console.error(e);
+        showToast("success", "<i class='fa fa-check-circle'></i> Bluetooth bağlandı");
+        commandButtons.forEach(btn => btn.classList.remove("disabled"));
+        btnConnect.innerHTML = "<i class='fas fa-bluetooth'></i> BAĞLI";
+        btnConnect.classList.add("connected");
+    } 
+    catch (error) {
+        console.error(error);
+        showToast("warn", "<i class='fa fa-exclamation-circle'></i> Bluetooth kapalı veya cihaz bulunamadı");
     }
 };
 
+// Komut gönder
 async function sendCommand(cmd) {
-    if (!commandChar) return;
-    await commandChar.writeValue(new TextEncoder().encode(cmd));
-}
-
-async function toggleLog() {
-    if (!logChar) return;
-    await logChar.writeValue(new TextEncoder().encode("TOGGLE_LOG"));
+    if (!characteristic) {
+        showToast("warn", "<i class='fa fa-exclamation-circle'></i> Önce bağlanın");
+        return;
+    }
+    const data = new TextEncoder().encode(cmd);
+    await characteristic.writeValue(data);
+    showToast("success", "<i class='fa fa-paper-plane'></i> " + cmd + " gönderildi");
 }
 </script>
+
 </body>
 </html>
 
