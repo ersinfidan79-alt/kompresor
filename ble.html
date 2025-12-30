@@ -14,8 +14,6 @@ html, body {
     justify-content: center;
     align-items: center;
 }
-
-/* ---------- PIN7 LED ---------- */
 #pinLedBox {
     position: fixed;
     top: 15px;
@@ -25,7 +23,6 @@ html, body {
     align-items: center;
     z-index: 9999;
 }
-
 #pinLed {
     width: 28px;
     height: 28px;
@@ -33,59 +30,30 @@ html, body {
     background: red;
     animation: pulse 1.2s infinite;
 }
-
 #pinText {
     margin-top: 6px;
     color: white;
     font-weight: bold;
     text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
-
 @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
-    70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+    0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+    70% { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
     100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
 }
-
-/* ---------- UI ---------- */
-.container {
-    width: 95%;
-    max-width: 480px;
-    text-align: center;
-}
-
+.container { width: 95%; max-width: 480px; text-align: center; }
 h2 { color: white; }
-
-.button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-button {
-    font-size: 1.8em;
-    padding: 18px;
-    border: none;
-    border-radius: 18px;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-    cursor: pointer;
-}
-
-button.disabled {
-    opacity: 0.4;
-    pointer-events: none;
-}
-
+.button-group { display: flex; flex-direction: column; gap: 18px; }
+button { font-size: 1.8em; padding: 18px; border: none; border-radius: 18px; color: white; box-shadow: 0 8px 20px rgba(0,0,0,0.35); cursor: pointer; }
+button.disabled { opacity: 0.4; pointer-events: none; }
 #btnConnect { background: linear-gradient(135deg,#007bff,#00bfff); }
-#btnStart   { background: linear-gradient(135deg,#28a745,#218838); }
-#btnStop    { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
-#btnReset   { background: linear-gradient(135deg,#8e44ad,#c0392b); }
+#btnStart { background: linear-gradient(135deg,#28a745,#218838); }
+#btnStop { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
+#btnReset { background: linear-gradient(135deg,#8e44ad,#c0392b); }
 </style>
 </head>
 
 <body>
-
 <div id="pinLedBox">
     <div id="pinLed"></div>
     <div id="pinText">KAPALI</div>
@@ -96,7 +64,6 @@ button.disabled {
     <div class="button-group">
         <button id="btnConnect">BAĞLAN</button>
     </div>
-
     <h2>Komutlar</h2>
     <div class="button-group">
         <button id="btnStart" class="disabled">START</button>
@@ -108,7 +75,6 @@ button.disabled {
 <script>
 let device, server, service;
 let cmdChar, notifyChar;
-let reconnectTimer = null;
 
 const pinLedBox = document.getElementById("pinLedBox");
 const pinLed = document.getElementById("pinLed");
@@ -121,23 +87,21 @@ const buttons = [
     document.getElementById("btnReset")
 ];
 
-function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(70);
-}
+function vibrate() { if (navigator.vibrate) navigator.vibrate(70); }
+function setButtons(on) { buttons.forEach(b => b.classList.toggle("disabled", !on)); }
 
-function setButtons(on) {
-    buttons.forEach(b => b.classList.toggle("disabled", !on));
-}
-
-async function connectBLE(auto=false) {
+async function connectBLE() {
     try {
-        if (!auto) {
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: "KOMPRESOR" }],
-                optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
-            });
-            device.addEventListener("gattserverdisconnected", onDisconnect);
-        }
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: "KOMPRESOR" }],
+            optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
+        });
+        device.addEventListener("gattserverdisconnected", () => {
+            alert("BLE bağlantısı koptu!");
+            pinLedBox.style.display = "none";
+            btnConnect.innerText = "BAĞLAN";
+            setButtons(false);
+        });
 
         server = await device.gatt.connect();
         service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
@@ -152,46 +116,28 @@ async function connectBLE(auto=false) {
             pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
         };
 
-        // ---------- Mevcut değeri hemen oku ----------
+        // İlk değeri oku
         const val = await notifyChar.readValue();
         const vStr = new TextDecoder().decode(val);
         pinLed.style.background = (vStr === "1") ? "lime" : "red";
         pinText.innerText = (vStr === "1") ? "AÇIK" : "KAPALI";
 
         pinLedBox.style.display = "flex";
-
         btnConnect.innerText = "BAĞLI";
         setButtons(true);
 
-        if (reconnectTimer) {
-            clearInterval(reconnectTimer);
-            reconnectTimer = null;
-        }
-    } catch (err) {
+    } catch(err) {
         console.error("BLE connect error:", err);
+        alert("BLE bağlanamadı. Tekrar BAĞLAN butonuna basın.");
     }
 }
 
-function onDisconnect() {
-    pinLedBox.style.display = "none";
-    btnConnect.innerText = "BAĞLAN";
-    setButtons(false);
-
-    reconnectTimer = setInterval(() => {
-        if (device) connectBLE(true);
-    }, 3000);
-}
-
-btnConnect.onclick = () => {
-    vibrate();
-    connectBLE(false);
-};
-
+btnConnect.onclick = () => { vibrate(); connectBLE(); };
 buttons[0].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("START")); };
 buttons[1].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("STOP")); };
 buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("RESET")); };
 </script>
-
 </body>
 </html>
+
 
