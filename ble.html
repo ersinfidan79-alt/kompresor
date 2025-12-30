@@ -20,7 +20,7 @@ html, body {
     position: fixed;
     top: 15px;
     width: 100%;
-    display: flex; /* artık her zaman görünür */
+    display: none;
     flex-direction: column;
     align-items: center;
     z-index: 9999;
@@ -110,6 +110,7 @@ let device, server, service;
 let cmdChar, notifyChar;
 let reconnectTimer = null;
 
+const pinLedBox = document.getElementById("pinLedBox");
 const pinLed = document.getElementById("pinLed");
 const pinText = document.getElementById("pinText");
 
@@ -127,10 +128,6 @@ function vibrate() {
 function setButtons(on) {
     buttons.forEach(b => b.classList.toggle("disabled", !on));
 }
-
-// LED başlangıç durumu
-pinLed.style.background = "red";
-pinText.innerText = "KAPALI";
 
 async function connectBLE(auto=false) {
     try {
@@ -155,9 +152,13 @@ async function connectBLE(auto=false) {
             pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
         };
 
-        // HTML tarafında başlangıç LED durumu
-        pinLed.style.background = "red";
-        pinText.innerText = "KAPALI";
+        // ---------- Mevcut değeri hemen oku ----------
+        const val = await notifyChar.readValue();
+        const vStr = new TextDecoder().decode(val);
+        pinLed.style.background = (vStr === "1") ? "lime" : "red";
+        pinText.innerText = (vStr === "1") ? "AÇIK" : "KAPALI";
+
+        pinLedBox.style.display = "flex";
 
         btnConnect.innerText = "BAĞLI";
         setButtons(true);
@@ -167,11 +168,12 @@ async function connectBLE(auto=false) {
             reconnectTimer = null;
         }
     } catch (err) {
-        console.log("BLE connect error:", err);
+        console.error("BLE connect error:", err);
     }
 }
 
 function onDisconnect() {
+    pinLedBox.style.display = "none";
     btnConnect.innerText = "BAĞLAN";
     setButtons(false);
 
@@ -192,3 +194,4 @@ buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().enc
 
 </body>
 </html>
+
