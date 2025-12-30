@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -10,7 +9,7 @@
 html, body {
     height: 100%;
     margin: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Segoe UI, Tahoma;
     background: linear-gradient(to bottom right, #74ebd5, #ACB6E5);
     display: flex;
     justify-content: center;
@@ -20,45 +19,40 @@ html, body {
 /* ---------- PIN7 LED ---------- */
 #pinLedBox {
     position: fixed;
-    top: 20px;
+    top: 15px;
     width: 100%;
     display: none;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     z-index: 9999;
 }
 
 #pinLed {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: red;
-    box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    animation: pulse 1.2s infinite;
 }
 
-/* ---------- TOAST ---------- */
-.toast {
-    position: fixed;
-    bottom: -120px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 15px 25px;
-    border-radius: 50px;
+#pinText {
+    margin-top: 6px;
     color: white;
-    font-size: 1.4em;
-    opacity: 0;
-    transition: all 0.45s ease;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-    z-index: 999999;
+    font-weight: bold;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
-.toast.show { bottom: 40px; opacity: 1; }
-.toast.success { background: rgba(40,167,69,0.88); }
-.toast.warn { background: rgba(255,165,0,0.88); }
+
+@keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
+    70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
+}
 
 /* ---------- UI ---------- */
 .container {
-    text-align: center;
     width: 95%;
-    max-width: 500px;
+    max-width: 480px;
+    text-align: center;
 }
 
 h2 { color: white; }
@@ -66,17 +60,17 @@ h2 { color: white; }
 .button-group {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 }
 
 button {
-    font-size: 2em;
-    padding: 20px;
+    font-size: 1.8em;
+    padding: 18px;
     border: none;
-    border-radius: 20px;
-    cursor: pointer;
+    border-radius: 18px;
     color: white;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    cursor: pointer;
 }
 
 button.disabled {
@@ -85,9 +79,9 @@ button.disabled {
 }
 
 #btnConnect { background: linear-gradient(135deg,#007bff,#00bfff); }
-#btnStart { background: linear-gradient(135deg,#28a745,#218838); }
-#btnStop { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
-#btnReset { background: linear-gradient(135deg,#8e44ad,#c0392b); }
+#btnStart   { background: linear-gradient(135deg,#28a745,#218838); }
+#btnStop    { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
+#btnReset   { background: linear-gradient(135deg,#8e44ad,#c0392b); }
 </style>
 </head>
 
@@ -95,29 +89,31 @@ button.disabled {
 
 <div id="pinLedBox">
     <div id="pinLed"></div>
+    <div id="pinText">KAPALI</div>
 </div>
-
-<div id="toast" class="toast"></div>
 
 <div class="container">
     <h2>Bluetooth</h2>
     <div class="button-group">
-        <button id="btnConnect">Bağlan</button>
+        <button id="btnConnect">BAĞLAN</button>
     </div>
 
-    <h2>Komut Gönder</h2>
+    <h2>Komutlar</h2>
     <div class="button-group">
         <button id="btnStart" class="disabled">START</button>
-        <button id="btnStop" class="disabled">STOP</button>
+        <button id="btnStop"  class="disabled">STOP</button>
         <button id="btnReset" class="disabled">RESET</button>
     </div>
 </div>
 
 <script>
-let device, characteristic, notifyChar;
+let device, server, service;
+let cmdChar, notifyChar;
+let reconnectTimer = null;
 
 const pinLedBox = document.getElementById("pinLedBox");
 const pinLed = document.getElementById("pinLed");
+const pinText = document.getElementById("pinText");
 
 const btnConnect = document.getElementById("btnConnect");
 const buttons = [
@@ -127,65 +123,68 @@ const buttons = [
 ];
 
 function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(80);
+    if (navigator.vibrate) navigator.vibrate(70);
 }
 
-function showToast(type, msg) {
-    const t = document.getElementById("toast");
-    t.className = "toast " + type;
-    t.innerHTML = msg;
-    t.classList.add("show");
-    setTimeout(() => t.classList.remove("show"), 2000);
+function setButtons(on) {
+    buttons.forEach(b => b.classList.toggle("disabled", !on));
 }
 
-function setButtons(enabled) {
-    buttons.forEach(b => b.classList.toggle("disabled", !enabled));
-}
-
-btnConnect.onclick = async () => {
-    vibrate();
+async function connectBLE(auto=false) {
     try {
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: "KOMPRESOR" }],
-            optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
-        });
+        if (!auto) {
+            device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: "KOMPRESOR" }],
+                optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
+            });
+            device.addEventListener("gattserverdisconnected", onDisconnect);
+        }
 
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
+        server = await device.gatt.connect();
+        service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
 
-        characteristic = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
+        cmdChar = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
         notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
 
         await notifyChar.startNotifications();
         notifyChar.oncharacteristicvaluechanged = e => {
             const v = new TextDecoder().decode(e.target.value);
-            pinLedBox.style.display = "flex";
             pinLed.style.background = (v === "1") ? "lime" : "red";
+            pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
         };
 
-        setButtons(true);
-        showToast("success", "Bluetooth bağlandı");
-    } catch {
-        showToast("warn", "Bağlantı başarısız");
-    }
-};
+        pinLedBox.style.display = "flex";
+        pinLed.style.background = "red";
+        pinText.innerText = "KAPALI";
 
-function send(cmd) {
-    if (!characteristic) return;
-    vibrate();
-    characteristic.writeValue(new TextEncoder().encode(cmd));
+        btnConnect.innerText = "BAĞLI";
+        setButtons(true);
+
+        if (reconnectTimer) {
+            clearInterval(reconnectTimer);
+            reconnectTimer = null;
+        }
+    } catch {}
 }
 
-buttons[0].onclick = () => send("START");
-buttons[1].onclick = () => send("STOP");
-buttons[2].onclick = () => send("RESET");
+function onDisconnect() {
+    pinLedBox.style.display = "none";
+    btnConnect.innerText = "BAĞLAN";
+    setButtons(false);
 
-setInterval(() => {
-    if (!device || !device.gatt.connected) {
-        pinLedBox.style.display = "none";
-        setButtons(false);
-    }
-}, 2000);
+    reconnectTimer = setInterval(() => {
+        if (device) connectBLE(true);
+    }, 3000);
+}
+
+btnConnect.onclick = () => {
+    vibrate();
+    connectBLE(false);
+};
+
+buttons[0].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("START")); };
+buttons[1].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("STOP")); };
+buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("RESET")); };
 </script>
 
 </body>
