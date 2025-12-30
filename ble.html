@@ -154,6 +154,22 @@ async function connectBLE(auto=false) {
         notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
 
         await notifyChar.startNotifications();
+        
+        /* 🔴 İLK STATE'İ ZORLA OKU */
+const val = await notifyChar.readValue();
+const v = new TextDecoder().decode(val);
+
+pin7State = v;
+pinLedBox.style.display = "flex";
+
+if (v === "1") {
+    pinLed.style.background = "lime";
+    pinText.innerText = "AÇIK";
+} else {
+    pinLed.style.background = "red";
+    pinText.innerText = "KAPALI";
+}
+
 
         /* ✅ SADECE NOTIFY GELİNCE LED ÇİZ */
         notifyChar.oncharacteristicvaluechanged = e => {
