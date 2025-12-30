@@ -107,99 +107,94 @@ button.disabled {
 </div>
 
 <script>
-let device, server, service;
+let device = null;
+let server, service;
 let cmdChar, notifyChar;
 let reconnectTimer = null;
 
+const btnConnect = document.getElementById("btnConnect");
 const pinLedBox = document.getElementById("pinLedBox");
 const pinLed = document.getElementById("pinLed");
 const pinText = document.getElementById("pinText");
 
-const btnConnect = document.getElementById("btnConnect");
 const buttons = [
-    document.getElementById("btnStart"),
-    document.getElementById("btnStop"),
-    document.getElementById("btnReset")
+  document.getElementById("btnStart"),
+  document.getElementById("btnStop"),
+  document.getElementById("btnReset")
 ];
 
-function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(70);
-}
-
 function setButtons(on) {
-    buttons.forEach(b => b.classList.toggle("disabled", !on));
+  buttons.forEach(b => b.classList.toggle("disabled", !on));
 }
 
-async function connectBLE(auto=false) {
-    try {
-        if (!auto) {
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: "KOMPRESOR" }],
-                optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
-            });
-            device.addEventListener("gattserverdisconnected", onDisconnect);
-        }
-
-        server = await device.gatt.connect();
-        service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
-
-        cmdChar = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
-        notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
-
-        /* 🔔 NOTIFY */
-        await notifyChar.startNotifications();
-
-        /* 🔥 İLK STATE'İ ZORLA OKU */
-        const val = await notifyChar.readValue();
-        updatePinLed(new TextDecoder().decode(val));
-
-        notifyChar.oncharacteristicvaluechanged = e => {
-            updatePinLed(new TextDecoder().decode(e.target.value));
-        };
-
-        pinLedBox.style.display = "flex";
-        btnConnect.innerText = "BAĞLI";
-        setButtons(true);
-
-        if (reconnectTimer) {
-            clearInterval(reconnectTimer);
-            reconnectTimer = null;
-        }
-    } catch {}
+function updatePin(value) {
+  const v = new TextDecoder().decode(value);
+  pinLed.style.background = (v === "1") ? "lime" : "red";
+  pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
 }
 
-function updatePinLed(v) {
-    pinLedBox.style.display = "flex";
-    if (v === "1") {
-        pinLed.style.background = "lime";
-        pinText.innerText = "AÇIK";
-    } else {
-        pinLed.style.background = "red";
-        pinText.innerText = "KAPALI";
-    }
+async function connectBLE() {
+  try {
+    // 🔴 Kullanıcı tıklamasıyla requestDevice
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: "KOMPRESOR" }],
+      optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
+    });
+
+    device.addEventListener("gattserverdisconnected", onDisconnect);
+
+    await doConnect();
+  } catch (e) {
+    console.log("BLE seçimi iptal edildi veya hata:", e);
+  }
+}
+
+async function doConnect() {
+  server = await device.gatt.connect();
+  service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
+
+  cmdChar = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
+  notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
+
+  await notifyChar.startNotifications();
+  notifyChar.oncharacteristicvaluechanged = e => updatePin(e.target.value);
+
+  // 🔥 İlk durum bilgisini oku
+  const val = await notifyChar.readValue();
+  updatePin(val);
+
+  btnConnect.innerText = "BAĞLI";
+  pinLedBox.style.display = "flex";
+  setButtons(true);
+
+  if (reconnectTimer) {
+    clearInterval(reconnectTimer);
+    reconnectTimer = null;
+  }
 }
 
 function onDisconnect() {
-    pinLedBox.style.display = "none";
-    btnConnect.innerText = "BAĞLAN";
-    setButtons(false);
+  btnConnect.innerText = "BAĞLAN";
+  pinLedBox.style.display = "none";
+  setButtons(false);
 
-    reconnectTimer = setInterval(() => {
-        if (device) connectBLE(true);
-    }, 3000);
+  // 🔁 Daha önce seçilmiş cihaz varsa tekrar bağlan
+  reconnectTimer = setInterval(async () => {
+    if (device) {
+      try { await doConnect(); } catch {}
+    }
+  }, 3000);
 }
 
-btnConnect.onclick = () => {
-    vibrate();
-    connectBLE(false);
-};
-
-buttons[0].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("START")); };
-buttons[1].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("STOP")); };
-buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("RESET")); };
+// -------- BUTONLAR --------
+btnConnect.onclick = () => connectBLE();
+buttons[0].onclick = () => cmdChar.writeValue(new TextEncoder().encode("START"));
+buttons[1].onclick = () => cmdChar.writeValue(new TextEncoder().encode("STOP"));
+buttons[2].onclick = () => cmdChar.writeValue(new TextEncoder().encode("RESET"));
 </script>
 
 </body>
 </html>
+
 
 
