@@ -89,7 +89,7 @@ button.disabled {
 
 <div id="pinLedBox">
     <div id="pinLed"></div>
-    <div id="pinText">KAPALI</div>
+    <div id="pinText">---</div>
 </div>
 
 <div class="container">
@@ -110,6 +110,9 @@ button.disabled {
 let device, server, service;
 let cmdChar, notifyChar;
 let reconnectTimer = null;
+
+/* 🔴 KRİTİK: state NULL */
+let pin7State = null;
 
 const pinLedBox = document.getElementById("pinLedBox");
 const pinLed = document.getElementById("pinLed");
@@ -140,6 +143,10 @@ async function connectBLE(auto=false) {
             device.addEventListener("gattserverdisconnected", onDisconnect);
         }
 
+        /* 🔴 CONNECT BAŞLARKEN STATE RESET */
+        pin7State = null;
+        pinLedBox.style.display = "none";
+
         server = await device.gatt.connect();
         service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
 
@@ -147,15 +154,22 @@ async function connectBLE(auto=false) {
         notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
 
         await notifyChar.startNotifications();
+
+        /* ✅ SADECE NOTIFY GELİNCE LED ÇİZ */
         notifyChar.oncharacteristicvaluechanged = e => {
             const v = new TextDecoder().decode(e.target.value);
-            pinLed.style.background = (v === "1") ? "lime" : "red";
-            pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
-        };
 
-        pinLedBox.style.display = "flex";
-        pinLed.style.background = "red";
-        pinText.innerText = "KAPALI";
+            pin7State = v;
+            pinLedBox.style.display = "flex";
+
+            if (v === "1") {
+                pinLed.style.background = "lime";
+                pinText.innerText = "AÇIK";
+            } else {
+                pinLed.style.background = "red";
+                pinText.innerText = "KAPALI";
+            }
+        };
 
         btnConnect.innerText = "BAĞLI";
         setButtons(true);
@@ -168,7 +182,9 @@ async function connectBLE(auto=false) {
 }
 
 function onDisconnect() {
+    pin7State = null;
     pinLedBox.style.display = "none";
+
     btnConnect.innerText = "BAĞLAN";
     setButtons(false);
 
@@ -189,4 +205,5 @@ buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().enc
 
 </body>
 </html>
+
 
