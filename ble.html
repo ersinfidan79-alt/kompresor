@@ -1,191 +1,151 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="utf-8">
-<title>KOMPRESOR</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>ESP32 BLE Kontrol</title>
 
 <style>
-html, body {
-    height: 100%;
-    margin: 0;
-    font-family: Segoe UI, Tahoma;
-    background: linear-gradient(to bottom right, #74ebd5, #ACB6E5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+body {
+  font-family: Arial;
+  text-align: center;
+  background: #111;
+  color: #fff;
 }
 
-/* ---------- PIN7 LED ---------- */
-#pinLedBox {
-    position: fixed;
-    top: 15px;
-    width: 100%;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    z-index: 9999;
-}
-
-#pinLed {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: red;
-    animation: pulse 1.2s infinite;
-}
-
-#pinText {
-    margin-top: 6px;
-    color: white;
-    font-weight: bold;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+#statusLed {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  margin: 10px auto;
+  display: none;
+  animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.7); }
-    70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
-    100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-}
-
-/* ---------- UI ---------- */
-.container {
-    width: 95%;
-    max-width: 480px;
-    text-align: center;
-}
-
-h2 { color: white; }
-
-.button-group {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
+  0%   { box-shadow: 0 0 5px currentColor; }
+  50%  { box-shadow: 0 0 15px currentColor; }
+  100% { box-shadow: 0 0 5px currentColor; }
 }
 
 button {
-    font-size: 1.8em;
-    padding: 18px;
-    border: none;
-    border-radius: 18px;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
-    cursor: pointer;
+  padding: 15px;
+  margin: 10px;
+  font-size: 18px;
+  width: 150px;
 }
 
-button.disabled {
-    opacity: 0.4;
-    pointer-events: none;
+button:disabled {
+  opacity: 0.3;
 }
 
-#btnConnect { background: linear-gradient(135deg,#007bff,#00bfff); }
-#btnStart   { background: linear-gradient(135deg,#28a745,#218838); }
-#btnStop    { background: linear-gradient(135deg,#dc3545,#ff4c4c); }
-#btnReset   { background: linear-gradient(135deg,#8e44ad,#c0392b); }
+#pinLabel {
+  margin-top: 10px;
+  font-size: 18px;
+}
 </style>
 </head>
 
 <body>
 
-<div id="pinLedBox">
-    <div id="pinLed"></div>
-    <div id="pinText">KAPALI</div>
-</div>
+<h2>ESP32 BLE Kontrol</h2>
 
-<div class="container">
-    <h2>Bluetooth</h2>
-    <div class="button-group">
-        <button id="btnConnect">BAĞLAN</button>
-    </div>
+<div id="statusLed"></div>
+<div id="pinLabel"></div>
 
-    <h2>Komutlar</h2>
-    <div class="button-group">
-        <button id="btnStart" class="disabled">START</button>
-        <button id="btnStop"  class="disabled">STOP</button>
-        <button id="btnReset" class="disabled">RESET</button>
-    </div>
-</div>
+<button id="connectBtn">Bağlan</button><br>
+<button id="startBtn" disabled>START</button>
+<button id="stopBtn" disabled>STOP</button>
 
 <script>
 let device, server, service;
 let cmdChar, notifyChar;
-let reconnectTimer = null;
+let connected = false;
 
-const pinLedBox = document.getElementById("pinLedBox");
-const pinLed = document.getElementById("pinLed");
-const pinText = document.getElementById("pinText");
+const SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb";
+const CMD_UUID     = "0000abcd-0000-1000-8000-00805f9b34fb";
+const OPEN_UUID    = "0000dcba-0000-1000-8000-00805f9b34fb";
 
-const btnConnect = document.getElementById("btnConnect");
-const buttons = [
-    document.getElementById("btnStart"),
-    document.getElementById("btnStop"),
-    document.getElementById("btnReset")
-];
+const led = document.getElementById("statusLed");
+const pinLabel = document.getElementById("pinLabel");
 
 function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(70);
+  if (navigator.vibrate) navigator.vibrate(30);
 }
 
-function setButtons(on) {
-    buttons.forEach(b => b.classList.toggle("disabled", !on));
+function setButtons(state) {
+  document.getElementById("startBtn").disabled = !state;
+  document.getElementById("stopBtn").disabled  = !state;
 }
 
-async function connectBLE(auto=false) {
-    try {
-        if (!auto) {
-            device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: "KOMPRESOR" }],
-                optionalServices: ["00001234-0000-1000-8000-00805f9b34fb"]
-            });
-            device.addEventListener("gattserverdisconnected", onDisconnect);
-        }
+function updateUI(open) {
+  led.style.display = "block";
 
-        server = await device.gatt.connect();
-        service = await server.getPrimaryService("00001234-0000-1000-8000-00805f9b34fb");
-
-        cmdChar = await service.getCharacteristic("0000abcd-0000-1000-8000-00805f9b34fb");
-        notifyChar = await service.getCharacteristic("0000dcba-0000-1000-8000-00805f9b34fb");
-
-        await notifyChar.startNotifications();
-        notifyChar.oncharacteristicvaluechanged = e => {
-            const v = new TextDecoder().decode(e.target.value);
-            pinLed.style.background = (v === "1") ? "lime" : "red";
-            pinText.innerText = (v === "1") ? "AÇIK" : "KAPALI";
-        };
-
-        pinLedBox.style.display = "flex";
-        pinLed.style.background = "red";
-        pinText.innerText = "KAPALI";
-
-        btnConnect.innerText = "BAĞLI";
-        setButtons(true);
-
-        if (reconnectTimer) {
-            clearInterval(reconnectTimer);
-            reconnectTimer = null;
-        }
-    } catch {}
+  if (open) {
+    led.style.color = "lime";
+    pinLabel.innerText = "Pin7: AÇIK";
+  } else {
+    led.style.color = "red";
+    pinLabel.innerText = "Pin7: KAPALI";
+  }
 }
 
-function onDisconnect() {
-    pinLedBox.style.display = "none";
-    btnConnect.innerText = "BAĞLAN";
-    setButtons(false);
+async function connectBLE() {
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }]
+    });
 
-    reconnectTimer = setInterval(() => {
-        if (device) connectBLE(true);
-    }, 3000);
+    device.addEventListener("gattserverdisconnected", reconnect);
+
+    server = await device.gatt.connect();
+    service = await server.getPrimaryService(SERVICE_UUID);
+
+    cmdChar = await service.getCharacteristic(CMD_UUID);
+    notifyChar = await service.getCharacteristic(OPEN_UUID);
+
+    await notifyChar.startNotifications();
+    notifyChar.addEventListener("characteristicvaluechanged", e => {
+      const v = new TextDecoder().decode(e.target.value);
+      updateUI(v === "1");
+    });
+
+    connected = true;
+    document.getElementById("connectBtn").innerText = "Bağlı";
+    setButtons(true);
+
+  } catch (e) {
+    console.log(e);
+  }
 }
 
-btnConnect.onclick = () => {
-    vibrate();
-    connectBLE(false);
+function reconnect() {
+  connected = false;
+  setButtons(false);
+  led.style.display = "none";
+  pinLabel.innerText = "";
+  document.getElementById("connectBtn").innerText = "Bağlan";
+
+  setTimeout(() => {
+    if (device) connectBLE();
+  }, 2000);
+}
+
+document.getElementById("connectBtn").onclick = () => {
+  vibrate();
+  if (!connected) connectBLE();
 };
 
-buttons[0].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("START")); };
-buttons[1].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("STOP")); };
-buttons[2].onclick = () => { vibrate(); cmdChar.writeValue(new TextEncoder().encode("RESET")); };
+document.getElementById("startBtn").onclick = () => {
+  vibrate();
+  cmdChar.writeValue(new TextEncoder().encode("START"));
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  vibrate();
+  cmdChar.writeValue(new TextEncoder().encode("STOP"));
+};
 </script>
 
 </body>
 </html>
+
